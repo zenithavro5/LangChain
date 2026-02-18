@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LangChain 1.1 — The Ecosystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --surface: #12161f;
+      --surface2: #1a2030;
+      --border: #1f2b40;
+      --accent: #3b82f6;
+      --accent2: #06b6d4;
+      --accent3: #8b5cf6;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --code-bg: #0d1117;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+      min-height: 100vh;
+    }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #0b0e14 0%, #0f172a 50%, #0b1120 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 60px 40px 50px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: 20%;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 4px;
+      margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      color: var(--muted);
+      max-width: 620px;
+      font-size: 16px;
+      font-weight: 300;
+    }
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+    }
+    .tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* LAYOUT */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 50px 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 60px;
+    }
+
+    /* SECTION */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.25);
+      padding: 3px 9px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    /* CARD */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 30px;
+      margin-bottom: 14px;
+    }
+    .card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 10px;
+    }
+    .card p { color: #94a3b8; font-size: 14px; }
+
+    /* HIGHLIGHT BOX */
+    .highlight {
+      background: linear-gradient(135deg, rgba(59,130,246,0.07), rgba(6,182,212,0.05));
+      border: 1px solid rgba(59,130,246,0.2);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin: 16px 0;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .highlight strong { color: var(--accent2); }
+
+    .warn {
+      background: rgba(245,158,11,0.07);
+      border: 1px solid rgba(245,158,11,0.2);
+      border-left: 3px solid var(--yellow);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .warn strong { color: var(--yellow); }
+
+    .success {
+      background: rgba(16,185,129,0.07);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-left: 3px solid var(--green);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .success strong { color: var(--green); }
+
+    /* CODE */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px 24px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      margin: 14px 0;
+    }
+    .kw { color: #c792ea; }
+    .fn { color: #82aaff; }
+    .str { color: #c3e88d; }
+    .cm { color: #546e7a; font-style: italic; }
+    .var { color: #f07178; }
+    .num { color: #f78c6c; }
+    .op { color: #89ddff; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255,255,255,0.06);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 12.5px;
+      color: #c3e88d;
+    }
+
+    /* PACKAGE GRID */
+    .pkg-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-top: 8px;
+    }
+    .pkg-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .pkg-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .pkg-card .pkg-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent2);
+      margin-bottom: 8px;
+      display: block;
+    }
+    .pkg-card p { font-size: 13px; color: var(--muted); }
+    .pkg-badge {
+      position: absolute;
+      top: 12px; right: 12px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+    .core-badge { background: rgba(139,92,246,0.15); color: var(--accent3); border: 1px solid rgba(139,92,246,0.25); }
+    .optional-badge { background: rgba(100,116,139,0.15); color: var(--muted); border: 1px solid var(--border); }
+
+    /* COMPARISON TABLE */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      min-width: 540px;
+    }
+    th {
+      background: var(--surface2);
+      color: var(--accent2);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(31,43,64,0.5);
+      color: #94a3b8;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .check { color: var(--green); }
+    .cross { color: var(--red); }
+    .partial { color: var(--yellow); }
+
+    /* STEPS */
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .step-body { flex: 1; }
+    .step-body h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 5px;
+    }
+    .step-body p { color: var(--muted); font-size: 13.5px; }
+
+    /* DIVIDER */
+    hr { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      border-top: 1px solid var(--border);
+    }
+
+    /* DECISION FLOW */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 30px;
+    }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .flow-q {
+      background: rgba(139,92,246,0.12);
+      border: 1px solid rgba(139,92,246,0.25);
+      color: #c4b5fd;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      flex: 1;
+    }
+    .flow-arrow { color: var(--muted); font-size: 18px; }
+    .flow-a {
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.2);
+      color: #6ee7b7;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Syne', sans-serif;
+      min-width: 130px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Phase 1 · Section 1.1</div>
+  <h1>Understanding the<br/><span>LangChain Ecosystem</span></h1>
+  <p>Everything you must know before writing a single line of LangChain code — the why, the what, and the how.</p>
+  <div class="hero-tags">
+    <span class="tag">langchain-core</span>
+    <span class="tag">langchain-community</span>
+    <span class="tag">langchain-openai</span>
+    <span class="tag">LCEL</span>
+    <span class="tag">LangGraph</span>
+    <span class="tag">LangSmith</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SECTION 1: WHAT IS LANGCHAIN & WHY IT EXISTS       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">
+      <span class="section-num">01</span>
+      <h2 class="section-title">What is LangChain & Why It Exists</h2>
+    </div>
+
+    <p style="color:#94a3b8; margin-bottom:18px;">
+      The raw OpenAI API can generate text. But building a <em>real application</em> — one that reads your documents, remembers conversations, uses tools, and handles multi-step reasoning — requires a lot of glue code. LangChain is that glue.
+    </p>
+
+    <div class="highlight">
+      <strong>Core Idea:</strong> LangChain is a framework for building <em>applications powered by language models</em>. It standardizes the way you connect LLMs to data sources, tools, memory, and other LLMs — so you don't reinvent the wheel every time.
+    </div>
+
+    <div class="card">
+      <h3>🧩 The Problem LangChain Solves</h3>
+      <p>Without LangChain, building a chatbot over your own documents means manually writing: document loading, text chunking, embedding creation, vector storage, retrieval logic, prompt construction, conversation memory management, output parsing, and error handling. That's hundreds of lines of boilerplate for something that should be ~20 lines.</p>
+    </div>
+
+    <div class="card">
+      <h3>🔑 The Key Mental Model</h3>
+      <p>Think of LangChain as a set of <strong>standardized interfaces and composable building blocks</strong>. Every piece (model, retriever, tool, memory) implements the same <code>Runnable</code> interface, so they can be snapped together like Lego. This is called <strong>LCEL — LangChain Expression Language</strong>.</p>
+    </div>
+
+    <div class="card">
+      <h3>📦 What LangChain Gives You</h3>
+      <p>Integrations with 100+ LLMs and vector stores · Prompt management · Memory · RAG pipelines · Agents and tools · Streaming · Async support · Observability (LangSmith) · Deployment (LangServe) · Multi-agent orchestration (LangGraph)</p>
+    </div>
+
+    <div class="warn">
+      <strong>⚠️ Important caveat:</strong> LangChain moves fast. The codebase has been refactored significantly (v0.1 → v0.2 → v0.3). Always check you're reading docs for the version you're using. As of 2025, <strong>LCEL is the canonical way</strong> to build chains. Older patterns using <code>LLMChain</code> are legacy.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SECTION 2: PACKAGE STRUCTURE                       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">
+      <span class="section-num">02</span>
+      <h2 class="section-title">Package Structure — What to Actually Install</h2>
+    </div>
+
+    <p style="color:#94a3b8; margin-bottom:20px;">
+      LangChain is split into several focused packages. This was done intentionally to keep your dependency footprint small and to allow the ecosystem to evolve independently.
+    </p>
+
+    <div class="pkg-grid">
+      <div class="pkg-card">
+        <span class="pkg-badge core-badge">ALWAYS</span>
+        <span class="pkg-name">langchain-core</span>
+        <p>The foundation. Contains all base abstractions: <code>Runnable</code>, <code>BaseMessage</code>, <code>PromptTemplate</code>, <code>BaseRetriever</code>. Never use directly — it's pulled in automatically.</p>
+      </div>
+      <div class="pkg-card">
+        <span class="pkg-badge core-badge">ALWAYS</span>
+        <span class="pkg-name">langchain</span>
+        <p>The main package. Contains higher-level chains, agents, memory, and document transformers. This is what you import day-to-day.</p>
+      </div>
+      <div class="pkg-card">
+        <span class="pkg-badge optional-badge">OPTIONAL</span>
+        <span class="pkg-name">langchain-openai</span>
+        <p>Official OpenAI integration. Provides <code>ChatOpenAI</code> and <code>OpenAIEmbeddings</code>. Use this instead of <code>langchain-community</code> for OpenAI.</p>
+      </div>
+      <div class="pkg-card">
+        <span class="pkg-badge optional-badge">OPTIONAL</span>
+        <span class="pkg-name">langchain-community</span>
+        <p>300+ third-party integrations: loaders, vector stores, tools, LLMs. Large package — install only what you need via extras.</p>
+      </div>
+      <div class="pkg-card">
+        <span class="pkg-badge optional-badge">OPTIONAL</span>
+        <span class="pkg-name">langgraph</span>
+        <p>Multi-agent workflow orchestration using graphs. Use this for any stateful, cyclical, or multi-agent workflow.</p>
+      </div>
+      <div class="pkg-card">
+        <span class="pkg-badge optional-badge">OPTIONAL</span>
+        <span class="pkg-name">langsmith</span>
+        <p>Observability SDK. Tracing, evaluation, and debugging. Pairs with the LangSmith cloud platform.</p>
+      </div>
+    </div>
+
+    <div class="highlight" style="margin-top:20px;">
+      <strong>Install for 90% of projects:</strong>
+    </div>
+
+<pre><span class="cm"># Core stack — start here</span>
+pip install langchain langchain-openai
+
+<span class="cm"># Add for RAG projects</span>
+pip install langchain-community faiss-cpu
+
+<span class="cm"># Add for agents + complex workflows</span>
+pip install langgraph
+
+<span class="cm"># Add for observability</span>
+pip install langsmith</pre>
+
+    <div class="highlight">
+      <strong>Why separate packages?</strong> Before the split, <code>pip install langchain</code> would pull in 100+ dependencies including heavy ML libraries even if you only needed basic chat. Now you only install what you actually use.
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>🗺️ How the packages relate</h3>
+      <p style="font-family:'JetBrains Mono',monospace; font-size:12px; color:#64748b; line-height:2;">
+        langchain-core  (base interfaces)<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↑ used by<br/>
+        langchain  (chains, agents, memory)<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↑ uses<br/>
+        langchain-openai / langchain-anthropic / langchain-community  (integrations)<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↑ orchestrated by<br/>
+        langgraph  (multi-agent workflows)
+      </p>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SECTION 3: LANGCHAIN vs LLAMAINDEX vs RAW API      -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">
+      <span class="section-num">03</span>
+      <h2 class="section-title">LangChain vs LlamaIndex vs Raw API Calls</h2>
+    </div>
+
+    <p style="color:#94a3b8; margin-bottom:18px;">
+      This is one of the most common questions. The answer isn't "X is always better" — it's about what you're building.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>Raw OpenAI API</th>
+            <th>LangChain</th>
+            <th>LlamaIndex</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Best for</strong></td>
+            <td>Simple, focused tasks</td>
+            <td>Agents, workflows, diverse use cases</td>
+            <td>Data-heavy RAG over large document corpora</td>
+          </tr>
+          <tr>
+            <td><strong>Learning curve</strong></td>
+            <td class="check">✓ Minimal</td>
+            <td class="partial">~ Moderate</td>
+            <td class="partial">~ Moderate</td>
+          </tr>
+          <tr>
+            <td><strong>RAG tooling</strong></td>
+            <td class="cross">✗ None</td>
+            <td class="check">✓ Good</td>
+            <td class="check">✓ Excellent</td>
+          </tr>
+          <tr>
+            <td><strong>Agent/tool use</strong></td>
+            <td class="partial">~ Manual</td>
+            <td class="check">✓ Excellent</td>
+            <td class="partial">~ Basic</td>
+          </tr>
+          <tr>
+            <td><strong>Multi-agent flows</strong></td>
+            <td class="cross">✗ None</td>
+            <td class="check">✓ LangGraph</td>
+            <td class="partial">~ Limited</td>
+          </tr>
+          <tr>
+            <td><strong>LLM flexibility</strong></td>
+            <td class="cross">✗ OpenAI only</td>
+            <td class="check">✓ 100+ LLMs</td>
+            <td class="check">✓ Many LLMs</td>
+          </tr>
+          <tr>
+            <td><strong>Observability</strong></td>
+            <td class="cross">✗ DIY</td>
+            <td class="check">✓ LangSmith</td>
+            <td class="partial">~ Basic tracing</td>
+          </tr>
+          <tr>
+            <td><strong>Abstraction level</strong></td>
+            <td>Low (full control)</td>
+            <td>Medium-high</td>
+            <td>Medium-high</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:22px;">
+      <h3 style="font-family:'Syne',sans-serif; font-size:1.05rem; color:#f1f5f9; margin-bottom:16px;">Decision Flow — What Should You Use?</h3>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="flow-q">Simple one-off LLM call? (summarize, classify, translate)</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-a">Raw API</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-q">Building a chatbot, agent, or multi-step workflow?</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-a">LangChain</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-q">Primary goal: RAG over massive document collections?</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-a">LlamaIndex</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-q">Complex multi-agent state machines with cycles?</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-a">LangGraph</div>
+        </div>
+        <div class="flow-row" style="margin-bottom:0;">
+          <div class="flow-q">Need fine-grained control + already know LLMs well?</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-a">Raw API</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="success" style="margin-top:18px;">
+      <strong>💡 Real talk:</strong> LangChain and LlamaIndex are not mutually exclusive. Many production systems use LlamaIndex for sophisticated document indexing and retrieval, then pipe results into a LangChain agent. Use both if needed.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SECTION 4: ENVIRONMENT SETUP                       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Setting Up Your Environment & API Keys</h2>
+    </div>
+
+    <p style="color:#94a3b8; margin-bottom:20px;">
+      Do this right from day one. Sloppy environment setup causes bugs that waste hours.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Create a virtual environment</h4>
+          <p>Never install LangChain globally. Use a dedicated environment per project.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Install packages</h4>
+          <p>Install the minimal set you need. Don't <code>pip install langchain-community</code> unless you specifically need it.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Set up your <code>.env</code> file</h4>
+          <p>Store all API keys here. Never hardcode them. Never commit this file to Git.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Enable LangSmith tracing (optional but recommended)</h4>
+          <p>Set LangSmith env vars from day one. You'll thank yourself when debugging.</p>
+        </div>
+      </div>
+    </div>
+
+<pre><span class="cm"># Step 1: Create virtual environment</span>
+python -m venv .venv
+source .venv/bin/activate  <span class="cm"># Windows: .venv\Scripts\activate</span>
+
+<span class="cm"># Step 2: Install packages</span>
+pip install langchain langchain-openai python-dotenv</pre>
+
+<pre><span class="cm"># .env file — never commit this!</span>
+OPENAI_API_KEY=sk-...
+
+<span class="cm"># Optional: LangSmith observability</span>
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls__...
+LANGCHAIN_PROJECT=my-project</pre>
+
+<pre><span class="cm"># Add .env to .gitignore immediately</span>
+echo <span class="str">".env"</span> >> .gitignore</pre>
+
+<pre><span class="cm"># In your Python code</span>
+<span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+
+load_dotenv()  <span class="cm"># loads .env into environment</span>
+
+<span class="cm"># LangChain reads OPENAI_API_KEY automatically</span>
+<span class="cm"># but you can also access it directly:</span>
+api_key = os.getenv(<span class="str">"OPENAI_API_KEY"</span>)
+
+<span class="cm"># Quick sanity check — your first LangChain call</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> ChatOpenAI
+
+llm = <span class="fn">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+response = llm.invoke(<span class="str">"Say hello in 5 words."</span>)
+<span class="fn">print</span>(response.content)</pre>
+
+    <div class="warn">
+      <strong>⚠️ Common mistakes:</strong> Using <code>gpt-4</code> when you mean <code>gpt-4o</code> (much cheaper/faster). Forgetting <code>load_dotenv()</code> before instantiating LangChain objects. Setting <code>OPENAI_API_KEY</code> after the <code>import</code> statements (too late — set env vars before importing).
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>🔑 Which API Keys You'll Need</h3>
+      <p>
+        <strong style="color:#94a3b8;">OpenAI</strong> — <code>OPENAI_API_KEY</code> — platform.openai.com<br/>
+        <strong style="color:#94a3b8;">Anthropic</strong> — <code>ANTHROPIC_API_KEY</code> — console.anthropic.com<br/>
+        <strong style="color:#94a3b8;">LangSmith</strong> — <code>LANGCHAIN_API_KEY</code> — smith.langchain.com<br/>
+        <strong style="color:#94a3b8;">Pinecone</strong> — <code>PINECONE_API_KEY</code> — only if using Pinecone vector DB<br/>
+        <strong style="color:#94a3b8;">Cohere</strong> — <code>COHERE_API_KEY</code> — only if using Cohere reranking
+      </p>
+    </div>
+
+    <div class="success" style="margin-top:14px;">
+      <strong>✅ Verify your setup works</strong> by running the 6-line sanity check above. If you get a response back, you're ready to build.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- KEY TAKEAWAYS                                      -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">
+      <span class="section-num">✓</span>
+      <h2 class="section-title">Key Takeaways</h2>
+    </div>
+
+    <div class="card">
+      <h3>The 5 things to internalize from this section</h3>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--green); font-size:18px; line-height:1.4;">1.</span>
+          <p style="color:#94a3b8; font-size:14px;"><strong style="color:#e2e8f0;">LangChain is glue, not magic.</strong> It standardizes the interface between LLMs, data, tools, and memory. Understanding this prevents over-engineering.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--green); font-size:18px; line-height:1.4;">2.</span>
+          <p style="color:#94a3b8; font-size:14px;"><strong style="color:#e2e8f0;">Install only what you need.</strong> Start with <code>langchain</code> + <code>langchain-openai</code>. Add packages as your project grows.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--green); font-size:18px; line-height:1.4;">3.</span>
+          <p style="color:#94a3b8; font-size:14px;"><strong style="color:#e2e8f0;">Use LCEL from day one.</strong> Ignore old tutorials using <code>LLMChain</code>. The <code>prompt | model | parser</code> pattern is the modern standard.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--green); font-size:18px; line-height:1.4;">4.</span>
+          <p style="color:#94a3b8; font-size:14px;"><strong style="color:#e2e8f0;">Raw API is fine for simple tasks.</strong> Don't reach for LangChain when a single <code>openai.chat.completions.create()</code> call would do.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--green); font-size:18px; line-height:1.4;">5.</span>
+          <p style="color:#94a3b8; font-size:14px;"><strong style="color:#e2e8f0;">Enable LangSmith early.</strong> Two env vars and you get full observability — invaluable for debugging complex chains and agents.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  LangChain Mastery Guide · Phase 1, Section 1.1 · Updated February 2026 · LangChain v0.3+
+</footer>
+
+</body>
+</html>
