@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LangChain 2.1 — LCEL & Chains</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080b10;
+      --surface: #0f1318;
+      --surface2: #161c25;
+      --surface3: #1c2433;
+      --border: #1e2a3a;
+      --border2: #243040;
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --accent3: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --orange: #fb923c;
+      --pink: #f472b6;
+      --text: #e2e8f0;
+      --muted: #4b6080;
+      --muted2: #64748b;
+      --code-bg: #060910;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.75;}
+
+    /* ── NAV ── */
+    nav{
+      background:rgba(8,11,16,0.92);
+      backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+      padding:12px 36px;
+      display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+      position:sticky;top:0;z-index:100;
+    }
+    .nav-sep{color:var(--border2);margin:0 4px;}
+    nav a{
+      color:var(--muted2);text-decoration:none;font-size:11.5px;
+      font-family:'JetBrains Mono',monospace;
+      padding:4px 10px;border-radius:5px;border:1px solid transparent;
+      transition:all 0.15s;letter-spacing:0.3px;
+    }
+    nav a:hover{color:var(--accent);border-color:rgba(56,189,248,0.25);background:rgba(56,189,248,0.06);}
+    .nav-label{color:var(--muted);font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:2px;margin-right:4px;}
+
+    /* ── HERO ── */
+    .hero{
+      padding:64px 48px 52px;
+      background:radial-gradient(ellipse 80% 60% at 70% -10%, rgba(129,140,248,0.1) 0%, transparent 60%),
+                 radial-gradient(ellipse 50% 40% at 10% 110%, rgba(56,189,248,0.07) 0%, transparent 60%),
+                 #080b10;
+      border-bottom:1px solid var(--border);
+      position:relative;overflow:hidden;
+    }
+    .hero-eyebrow{
+      display:inline-flex;align-items:center;gap:8px;
+      background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.2);
+      color:var(--accent2);font-family:'JetBrains Mono',monospace;
+      font-size:10.5px;letter-spacing:2.5px;text-transform:uppercase;
+      padding:5px 13px;border-radius:20px;margin-bottom:22px;
+    }
+    .hero-eyebrow span{width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+    .hero h1{
+      font-family:'Syne',sans-serif;font-size:clamp(2.2rem,5vw,3.4rem);
+      font-weight:800;line-height:1.05;margin-bottom:16px;
+    }
+    .hero h1 .dim{color:#334155;}
+    .hero h1 .bright{
+      background:linear-gradient(135deg,#e2e8f0 30%,#94a3b8 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hero h1 .glow{
+      background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hero-desc{color:var(--muted2);max-width:600px;font-size:15px;line-height:1.7;font-weight:300;}
+    .hero-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:24px;}
+    .hpill{
+      font-size:11.5px;font-family:'JetBrains Mono',monospace;
+      padding:4px 12px;border-radius:4px;border:1px solid;
+    }
+    .hp-blue{background:rgba(56,189,248,0.08);color:#7dd3fc;border-color:rgba(56,189,248,0.2);}
+    .hp-purple{background:rgba(129,140,248,0.08);color:#a5b4fc;border-color:rgba(129,140,248,0.2);}
+    .hp-green{background:rgba(52,211,153,0.08);color:#6ee7b7;border-color:rgba(52,211,153,0.2);}
+    .hp-orange{background:rgba(251,146,60,0.08);color:#fdba74;border-color:rgba(251,146,60,0.2);}
+
+    /* ── LAYOUT ── */
+    .page{max-width:940px;margin:0 auto;padding:52px 32px;display:flex;flex-direction:column;gap:72px;}
+
+    /* ── SECTION HEADER ── */
+    .sh{margin-bottom:26px;}
+    .sh-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
+    .snum{
+      font-family:'JetBrains Mono',monospace;font-size:10.5px;
+      padding:3px 9px;border-radius:4px;letter-spacing:1.5px;font-weight:600;
+    }
+    .sn-blue{background:rgba(56,189,248,0.1);color:var(--accent);border:1px solid rgba(56,189,248,0.2);}
+    .sn-purple{background:rgba(129,140,248,0.1);color:var(--accent2);border:1px solid rgba(129,140,248,0.2);}
+    .sn-green{background:rgba(52,211,153,0.1);color:var(--accent3);border:1px solid rgba(52,211,153,0.2);}
+    .sn-orange{background:rgba(251,146,60,0.1);color:var(--orange);border:1px solid rgba(251,146,60,0.2);}
+    .stitle{font-family:'Syne',sans-serif;font-size:1.55rem;font-weight:700;color:#f1f5f9;}
+    .sdesc{color:var(--muted2);font-size:13.5px;margin-top:2px;}
+
+    /* ── CARDS ── */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 26px;margin-bottom:14px;}
+    .card h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:10px;}
+    .card p,.card li{color:#7a9ab8;font-size:13.5px;line-height:1.7;}
+
+    /* ── CALLOUTS ── */
+    .info{background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-left:3px solid var(--accent);border-radius:8px;padding:16px 20px;margin:14px 0;color:#7a9ab8;font-size:13.5px;}
+    .info strong{color:var(--accent);}
+    .purple-box{background:rgba(129,140,248,0.05);border:1px solid rgba(129,140,248,0.15);border-left:3px solid var(--accent2);border-radius:8px;padding:16px 20px;margin:14px 0;color:#7a9ab8;font-size:13.5px;}
+    .purple-box strong{color:#a5b4fc;}
+    .green-box{background:rgba(52,211,153,0.05);border:1px solid rgba(52,211,153,0.15);border-left:3px solid var(--accent3);border-radius:8px;padding:16px 20px;margin:14px 0;color:#7a9ab8;font-size:13.5px;}
+    .green-box strong{color:var(--accent3);}
+    .warn{background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.15);border-left:3px solid var(--yellow);border-radius:8px;padding:16px 20px;margin:14px 0;color:#7a9ab8;font-size:13.5px;}
+    .warn strong{color:var(--yellow);}
+
+    /* ── CODE ── */
+    pre{
+      background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
+      padding:22px 24px;overflow-x:auto;
+      font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.8;
+      margin:14px 0;position:relative;
+    }
+    .code-label{
+      position:absolute;top:10px;right:14px;
+      font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;
+      color:var(--muted);background:var(--surface2);
+      padding:2px 8px;border-radius:3px;border:1px solid var(--border);
+    }
+    .kw{color:#c792ea;} .fn{color:#82aaff;} .str{color:#c3e88d;}
+    .cm{color:#374f63;font-style:italic;} .cls{color:#ffcb6b;}
+    .op{color:#89ddff;} .num{color:#f78c6c;} .dec{color:#f07178;}
+    code{font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px;font-size:12px;color:#c3e88d;}
+
+    /* ── PIPE VISUALIZER ── */
+    .pipe-vis{
+      display:flex;align-items:stretch;
+      background:var(--code-bg);border:1px solid var(--border);
+      border-radius:12px;overflow:hidden;margin:16px 0;
+    }
+    .pv-step{
+      flex:1;padding:20px 16px;display:flex;flex-direction:column;
+      align-items:center;gap:8px;position:relative;
+    }
+    .pv-step:not(:last-child)::after{
+      content:'|';
+      position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+      color:var(--accent2);font-size:22px;font-weight:700;
+      font-family:'JetBrains Mono',monospace;z-index:2;
+    }
+    .pv-step:not(:last-child){border-right:1px solid var(--border);}
+    .pv-icon{font-size:22px;}
+    .pv-name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;text-align:center;}
+    .pv-type{font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:4px;text-align:center;}
+    .pv-in{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center;}
+    .pv-out{font-size:10px;font-family:'JetBrains Mono',monospace;text-align:center;margin-top:2px;}
+
+    .pv-prompt .pv-name{color:#c4b5fd;}
+    .pv-prompt .pv-type{background:rgba(129,140,248,0.12);color:#c4b5fd;border:1px solid rgba(129,140,248,0.2);}
+    .pv-prompt .pv-out{color:#c4b5fd;}
+
+    .pv-model .pv-name{color:#93c5fd;}
+    .pv-model .pv-type{background:rgba(56,189,248,0.1);color:#7dd3fc;border:1px solid rgba(56,189,248,0.2);}
+    .pv-model .pv-out{color:#7dd3fc;}
+
+    .pv-parser .pv-name{color:#6ee7b7;}
+    .pv-parser .pv-type{background:rgba(52,211,153,0.1);color:#6ee7b7;border:1px solid rgba(52,211,153,0.2);}
+    .pv-parser .pv-out{color:#6ee7b7;}
+
+    /* ── RUNNABLE METHOD GRID ── */
+    .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0;}
+    @media(max-width:620px){.method-grid{grid-template-columns:1fr;}}
+    .method-card{
+      background:var(--surface2);border:1px solid var(--border2);
+      border-radius:10px;padding:20px;
+    }
+    .method-name{
+      font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;
+      margin-bottom:6px;display:block;
+    }
+    .mc-invoke .method-name{color:#7dd3fc;}
+    .mc-stream .method-name{color:#c4b5fd;}
+    .mc-batch .method-name{color:#6ee7b7;}
+    .method-sig{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);margin-bottom:10px;display:block;}
+    .method-card p{font-size:13px;color:var(--muted2);line-height:1.6;}
+    .method-badge{
+      display:inline-block;margin-top:10px;
+      font-size:10px;font-family:'JetBrains Mono',monospace;
+      padding:2px 8px;border-radius:3px;
+    }
+    .mb-sync{background:rgba(56,189,248,0.1);color:#7dd3fc;border:1px solid rgba(56,189,248,0.2);}
+    .mb-async{background:rgba(129,140,248,0.1);color:#a5b4fc;border:1px solid rgba(129,140,248,0.2);}
+
+    /* ── RUNNABLE GRID ── */
+    .runnable-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px;}
+    @media(max-width:620px){.runnable-grid{grid-template-columns:1fr;}}
+    .r-card{
+      background:var(--surface2);border:1px solid var(--border2);
+      border-radius:10px;padding:20px 22px;
+    }
+    .r-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+    .r-icon{font-size:20px;}
+    .r-name{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;}
+    .rn-parallel{color:#f472b6;}
+    .rn-passthrough{color:#7dd3fc;}
+    .rn-lambda{color:#fbbf24;}
+    .rn-branch{color:#6ee7b7;}
+    .r-card p{font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:10px;}
+    .r-card .use-tag{
+      font-size:10.5px;font-family:'JetBrains Mono',monospace;
+      padding:2px 9px;border-radius:3px;display:inline-block;
+    }
+    .ut-pink{background:rgba(244,114,182,0.1);color:#f9a8d4;border:1px solid rgba(244,114,182,0.2);}
+    .ut-blue{background:rgba(56,189,248,0.1);color:#7dd3fc;border:1px solid rgba(56,189,248,0.2);}
+    .ut-yellow{background:rgba(251,191,36,0.1);color:#fde68a;border:1px solid rgba(251,191,36,0.2);}
+    .ut-green{background:rgba(52,211,153,0.1);color:#6ee7b7;border:1px solid rgba(52,211,153,0.2);}
+
+    /* ── COMPARISON TABLE ── */
+    .table-wrap{overflow-x:auto;margin:14px 0;}
+    table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:480px;}
+    th{background:var(--surface2);color:var(--accent);font-family:'Syne',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);}
+    td{padding:12px 16px;border-bottom:1px solid rgba(30,42,58,0.5);color:#7a9ab8;vertical-align:top;}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(255,255,255,0.015);}
+
+    /* ── FLOW PARALLEL DIAGRAM ── */
+    .par-diagram{
+      background:var(--code-bg);border:1px solid var(--border);
+      border-radius:12px;padding:24px;margin:14px 0;
+      font-family:'JetBrains Mono',monospace;font-size:12px;
+    }
+    .par-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .par-row:last-child{margin-bottom:0;}
+    .par-box{padding:8px 14px;border-radius:7px;font-size:11.5px;font-weight:500;}
+    .par-input{background:rgba(100,116,139,0.12);color:var(--muted2);border:1px solid var(--border2);}
+    .par-split{color:var(--accent2);font-size:18px;}
+    .par-branch{display:flex;flex-direction:column;gap:6px;flex:1;}
+    .par-b1{background:rgba(244,114,182,0.1);color:#f9a8d4;border:1px solid rgba(244,114,182,0.2);padding:7px 12px;border-radius:6px;font-size:11px;}
+    .par-b2{background:rgba(56,189,248,0.1);color:#7dd3fc;border:1px solid rgba(56,189,248,0.2);padding:7px 12px;border-radius:6px;font-size:11px;}
+    .par-b3{background:rgba(251,191,36,0.1);color:#fde68a;border:1px solid rgba(251,191,36,0.2);padding:7px 12px;border-radius:6px;font-size:11px;}
+    .par-merge{color:var(--accent2);font-size:18px;}
+    .par-output{background:rgba(52,211,153,0.1);color:#6ee7b7;border:1px solid rgba(52,211,153,0.2);padding:8px 14px;border-radius:7px;font-size:11.5px;}
+    .par-arrow{color:var(--muted);font-size:16px;}
+
+    /* ── SUMMARY ── */
+    .summary-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:600px){.summary-wrap{grid-template-columns:1fr;}}
+    .sum-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;}
+    .sum-card h4{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:10px;}
+    .sum-card li{font-size:12.5px;color:var(--muted2);list-style:none;padding:3px 0;display:flex;gap:7px;align-items:flex-start;}
+    .sum-card li::before{content:'›';color:var(--accent2);flex-shrink:0;font-weight:700;}
+
+    hr{border:none;border-top:1px solid var(--border);}
+    footer{text-align:center;padding:30px;color:var(--muted);font-size:11.5px;font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border);}
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-label">2.1</span>
+  <a href="#pipe">The Pipe |</a>
+  <span class="nav-sep">·</span>
+  <a href="#runnable">Runnable Interface</a>
+  <span class="nav-sep">·</span>
+  <a href="#parallel">RunnableParallel</a>
+  <span class="nav-sep">·</span>
+  <a href="#passthrough">RunnablePassthrough</a>
+  <span class="nav-sep">·</span>
+  <a href="#lambda">RunnableLambda</a>
+  <span class="nav-sep">·</span>
+  <a href="#patterns">Patterns</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow"><span></span>Phase 2 · Section 2.1</div>
+  <h1>
+    <span class="dim">chain =</span> <span class="glow">prompt</span>
+    <span class="dim"> | </span><span class="glow">model</span>
+    <span class="dim"> | </span><span class="glow">parser</span>
+  </h1>
+  <p class="hero-desc">LCEL — LangChain Expression Language. The pipe operator, the Runnable interface, and the composable primitives that power every LangChain application.</p>
+  <div class="hero-pills">
+    <span class="hpill hp-blue">| pipe operator</span>
+    <span class="hpill hp-blue">.invoke()</span>
+    <span class="hpill hp-blue">.stream()</span>
+    <span class="hpill hp-blue">.batch()</span>
+    <span class="hpill hp-purple">RunnableParallel</span>
+    <span class="hpill hp-green">RunnablePassthrough</span>
+    <span class="hpill hp-orange">RunnableLambda</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 01 — THE PIPE OPERATOR                     -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="pipe">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-blue">01</span><h2 class="stitle">The Pipe Operator &amp; How Chains Work</h2></div>
+      <p class="sdesc">What <code>|</code> actually does, and why it's the backbone of all LCEL code</p>
+    </div>
+
+    <p style="color:#7a9ab8;margin-bottom:18px;">
+      In Python, <code>|</code> is the bitwise OR operator. LangChain overrides it on anything that implements <code>Runnable</code> to mean <strong>"pipe the output of the left into the input of the right"</strong> — just like Unix pipes. When you write <code>a | b | c</code>, LangChain builds a <code>RunnableSequence</code> object that executes them left-to-right.
+    </p>
+
+    <!-- PIPE VISUALIZER -->
+    <div class="pipe-vis">
+      <div class="pv-step pv-prompt">
+        <div class="pv-icon">📝</div>
+        <div class="pv-name">ChatPromptTemplate</div>
+        <div class="pv-type">Runnable</div>
+        <div class="pv-in">IN: dict {"topic": "..."}</div>
+        <div class="pv-out">OUT: [SystemMessage, HumanMessage]</div>
+      </div>
+      <div class="pv-step pv-model">
+        <div class="pv-icon">🤖</div>
+        <div class="pv-name">ChatOpenAI</div>
+        <div class="pv-type">Runnable</div>
+        <div class="pv-in">IN: [SystemMessage, HumanMessage]</div>
+        <div class="pv-out">OUT: AIMessage</div>
+      </div>
+      <div class="pv-step pv-parser">
+        <div class="pv-icon">🎯</div>
+        <div class="pv-name">StrOutputParser</div>
+        <div class="pv-type">Runnable</div>
+        <div class="pv-in">IN: AIMessage</div>
+        <div class="pv-out">OUT: str</div>
+      </div>
+    </div>
+
+    <div class="info">
+      <strong>Key insight:</strong> Each component's <em>output type</em> must match the next component's <em>input type</em>. The chain fails at runtime if there's a type mismatch. Understanding these types is what makes you productive with LCEL.
+    </div>
+
+<pre><span class="code-label">PYTHON</span><span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="kw">from</span> langchain_core.output_parsers <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+<span class="cm"># Each component is a Runnable</span>
+prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"You are an expert in {domain}."</span>),
+    (<span class="str">"human"</span>, <span class="str">"{question}"</span>),
+])
+model  = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+parser = <span class="cls">StrOutputParser</span>()
+
+<span class="cm"># | builds a RunnableSequence — nothing executes yet</span>
+chain = prompt <span class="op">|</span> model <span class="op">|</span> parser
+<span class="fn">print</span>(<span class="fn">type</span>(chain))  <span class="cm"># langchain_core.runnables.RunnableSequence</span>
+
+<span class="cm"># .invoke() executes the whole pipeline</span>
+result = chain.invoke({
+    <span class="str">"domain"</span>: <span class="str">"astrophysics"</span>,
+    <span class="str">"question"</span>: <span class="str">"What is a neutron star?"</span>
+})
+<span class="fn">print</span>(<span class="fn">type</span>(result))  <span class="cm"># str</span>
+<span class="fn">print</span>(result)</pre>
+
+    <div class="card">
+      <h3>⚙️ What the | operator actually does under the hood</h3>
+      <p>When Python evaluates <code>prompt | model</code>, it calls <code>prompt.__or__(model)</code>. LangChain's <code>Runnable</code> base class implements <code>__or__</code> to return a <code>RunnableSequence([prompt, model])</code>. Chaining <code>| parser</code> appends to that sequence. The final chain is a single object that can be invoked, streamed, or batched — identical interface to any individual component.</p>
+    </div>
+
+    <div class="warn">
+      <strong>⚠️ The chain is lazy:</strong> Writing <code>chain = prompt | model | parser</code> does <em>nothing</em>. No API calls, no computation. The chain is just a description of what will happen. Execution only starts when you call <code>.invoke()</code>, <code>.stream()</code>, or <code>.batch()</code>.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 02 — RUNNABLE INTERFACE                    -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="runnable">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-purple">02</span><h2 class="stitle">The Runnable Interface</h2></div>
+      <p class="sdesc"><code>.invoke()</code> · <code>.stream()</code> · <code>.batch()</code> — and their async counterparts</p>
+    </div>
+
+    <p style="color:#7a9ab8;margin-bottom:18px;">
+      Every LangChain component — prompts, models, parsers, retrievers, tools — implements the <code>Runnable</code> interface. This gives them all the same execution methods. Learn these three methods once, use them on everything.
+    </p>
+
+    <div class="method-grid">
+      <div class="method-card mc-invoke">
+        <span class="method-name">.invoke()</span>
+        <span class="method-sig">input → output</span>
+        <p>Synchronous, blocking. Runs the chain end-to-end and returns the final output. Use for scripts, CLI tools, and one-off calls.</p>
+        <span class="method-badge mb-sync">SYNC · BLOCKING</span>
+      </div>
+      <div class="method-card mc-stream">
+        <span class="method-name">.stream()</span>
+        <span class="method-sig">input → Iterator[chunk]</span>
+        <p>Streams output tokens as they're generated. Returns an iterator of chunks. Essential for chat UIs — users see text appear in real-time.</p>
+        <span class="method-badge mb-sync">SYNC · STREAMING</span>
+      </div>
+      <div class="method-card mc-batch">
+        <span class="method-name">.batch()</span>
+        <span class="method-sig">[inputs] → [outputs]</span>
+        <p>Runs multiple inputs in parallel (with configurable concurrency). Far faster than looping <code>.invoke()</code>. Use for bulk processing.</p>
+        <span class="method-badge mb-sync">SYNC · PARALLEL</span>
+      </div>
+    </div>
+
+<pre><span class="code-label">invoke / stream / batch</span>chain = prompt <span class="op">|</span> model <span class="op">|</span> parser
+
+<span class="cm"># ── .invoke() — single input, waits for full response ────</span>
+result = chain.invoke({<span class="str">"domain"</span>: <span class="str">"biology"</span>, <span class="str">"question"</span>: <span class="str">"What is DNA?"</span>})
+<span class="fn">print</span>(result)   <span class="cm"># str — full answer all at once</span>
+
+
+<span class="cm"># ── .stream() — yields chunks as the model generates ─────</span>
+<span class="kw">for</span> chunk <span class="kw">in</span> chain.stream({<span class="str">"domain"</span>: <span class="str">"history"</span>, <span class="str">"question"</span>: <span class="str">"Who was Napoleon?"</span>}):
+    <span class="fn">print</span>(chunk, end=<span class="str">""</span>, flush=<span class="op">True</span>)  <span class="cm"># prints word-by-word</span>
+
+
+<span class="cm"># ── .batch() — multiple inputs, runs concurrently ────────</span>
+questions = [
+    {<span class="str">"domain"</span>: <span class="str">"physics"</span>,    <span class="str">"question"</span>: <span class="str">"What is gravity?"</span>},
+    {<span class="str">"domain"</span>: <span class="str">"chemistry"</span>,  <span class="str">"question"</span>: <span class="str">"What is pH?"</span>},
+    {<span class="str">"domain"</span>: <span class="str">"economics"</span>,  <span class="str">"question"</span>: <span class="str">"What is inflation?"</span>},
+]
+results = chain.batch(questions, config={<span class="str">"max_concurrency"</span>: <span class="num">3</span>})
+<span class="fn">print</span>(<span class="fn">len</span>(results))  <span class="cm"># 3 answers</span>
+
+
+<span class="cm"># ── Async versions — use in FastAPI, async frameworks ────</span>
+result = <span class="kw">await</span> chain.ainvoke({...})
+<span class="kw">async for</span> chunk <span class="kw">in</span> chain.astream({...}): ...
+results = <span class="kw">await</span> chain.abatch([...])
+</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Sync</th><th>Async</th><th>Best Used For</th></tr></thead>
+        <tbody>
+          <tr><td><code>.invoke()</code></td><td>✓</td><td><code>await .ainvoke()</code></td><td>Scripts, single Q&amp;A, testing</td></tr>
+          <tr><td><code>.stream()</code></td><td>✓</td><td><code>async for .astream()</code></td><td>Chat UIs, real-time output</td></tr>
+          <tr><td><code>.batch()</code></td><td>✓</td><td><code>await .abatch()</code></td><td>Bulk processing, data pipelines</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="green-box">
+      <strong>💡 Use async in production:</strong> If you're building a web API with FastAPI, always use <code>ainvoke</code> / <code>astream</code>. Sync calls block the event loop and kill concurrency. Async lets you handle many users simultaneously without extra threads.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 03 — RUNNABLEPARALLEL                      -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="parallel">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-orange">03</span><h2 class="stitle">RunnableParallel</h2></div>
+      <p class="sdesc">Run multiple chains simultaneously, merge results into a dict</p>
+    </div>
+
+    <p style="color:#7a9ab8;margin-bottom:18px;">
+      <code>RunnableParallel</code> takes a <strong>single input</strong>, fans it out to multiple chains running <em>concurrently</em>, and merges all their outputs into a single dictionary. This is essential for RAG pipelines and any time you need multiple LLM calls in one step.
+    </p>
+
+    <div class="par-diagram">
+      <div class="par-row">
+        <div class="par-box par-input">{"topic": "AI"}</div>
+        <div class="par-split">→</div>
+        <div class="par-branch">
+          <div class="par-b1">chain_a → "Definition: AI is..."</div>
+          <div class="par-b2">chain_b → "History: AI began in..."</div>
+          <div class="par-b3">chain_c → "Examples: [robots, GPT...]"</div>
+        </div>
+        <div class="par-merge">→</div>
+        <div class="par-box par-output">{"definition": "...", "history": "...", "examples": "..."}</div>
+      </div>
+    </div>
+
+<pre><span class="code-label">RunnableParallel</span><span class="kw">from</span> langchain_core.runnables <span class="kw">import</span> <span class="cls">RunnableParallel</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> langchain_core.output_parsers <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+model = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+
+<span class="cm"># Three separate chains — each gets the same input</span>
+definition_chain = <span class="cls">ChatPromptTemplate</span>.from_template(
+    <span class="str">"Define {topic} in one sentence."</span>
+) <span class="op">|</span> model <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+
+history_chain = <span class="cls">ChatPromptTemplate</span>.from_template(
+    <span class="str">"Give a 2-sentence history of {topic}."</span>
+) <span class="op">|</span> model <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+
+usecase_chain = <span class="cls">ChatPromptTemplate</span>.from_template(
+    <span class="str">"List 3 real-world uses of {topic}."</span>
+) <span class="op">|</span> model <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+
+<span class="cm"># Run all three IN PARALLEL — not sequentially</span>
+parallel = <span class="cls">RunnableParallel</span>(
+    definition=definition_chain,
+    history=history_chain,
+    usecases=usecase_chain,
+)
+
+result = parallel.invoke({<span class="str">"topic"</span>: <span class="str">"machine learning"</span>})
+
+<span class="cm"># result is a dict with all three answers</span>
+<span class="fn">print</span>(result[<span class="str">"definition"</span>])   <span class="cm"># "Machine learning is..."</span>
+<span class="fn">print</span>(result[<span class="str">"history"</span>])      <span class="cm"># "ML began in..."</span>
+<span class="fn">print</span>(result[<span class="str">"usecases"</span>])     <span class="cm"># "1. Spam detection..."</span>
+</pre>
+
+<pre><span class="code-label">shorthand dict syntax</span><span class="cm"># Dict literal syntax — identical to RunnableParallel()</span>
+parallel = {
+    <span class="str">"definition"</span>: definition_chain,
+    <span class="str">"history"</span>: history_chain,
+    <span class="str">"usecases"</span>: usecase_chain,
+}
+
+<span class="cm"># Use it inline in a bigger chain</span>
+final_chain = parallel <span class="op">|</span> <span class="cls">ChatPromptTemplate</span>.from_template(
+    <span class="str">"Given this:\nDefinition: {definition}\nHistory: {history}\nUses: {usecases}\n\nWrite a 3-sentence summary."</span>
+) <span class="op">|</span> model <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+
+summary = final_chain.invoke({<span class="str">"topic"</span>: <span class="str">"neural networks"</span>})
+</pre>
+
+    <div class="purple-box">
+      <strong>Why it matters for RAG:</strong> In a RAG pipeline, you need to pass the user's question to <em>both</em> the retriever (to get relevant docs) AND keep it available for the final prompt. <code>RunnableParallel</code> — specifically using <code>RunnablePassthrough</code> — is the canonical way to do this.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 04 — RUNNABLEPASSTHROUGH                   -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="passthrough">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-blue">04</span><h2 class="stitle">RunnablePassthrough</h2></div>
+      <p class="sdesc">Pass the input through unchanged — essential for RAG and parallel patterns</p>
+    </div>
+
+    <p style="color:#7a9ab8;margin-bottom:18px;">
+      <code>RunnablePassthrough</code> is the simplest Runnable: it takes input and returns it <em>unchanged</em>. This sounds useless until you need to preserve data through a pipeline while other branches transform it.
+    </p>
+
+    <div class="card">
+      <h3>🎯 The Classic Use Case — RAG Pipeline</h3>
+      <p>In RAG, you need the user's question to both (a) retrieve relevant docs, AND (b) appear in the final prompt. The retriever consumes the question and outputs documents — so the question would be "lost" without <code>RunnablePassthrough</code>.</p>
+    </div>
+
+<pre><span class="code-label">RunnablePassthrough</span><span class="kw">from</span> langchain_core.runnables <span class="kw">import</span> <span class="cls">RunnablePassthrough</span>, <span class="cls">RunnableParallel</span>
+
+<span class="cm"># ── Simplest usage ───────────────────────────────────────</span>
+passthrough = <span class="cls">RunnablePassthrough</span>()
+<span class="fn">print</span>(passthrough.invoke(<span class="str">"hello"</span>))   <span class="cm"># "hello" — unchanged</span>
+<span class="fn">print</span>(passthrough.invoke({<span class="str">"a"</span>: <span class="num">1</span>}))  <span class="cm"># {"a": 1} — unchanged</span>
+
+
+<span class="cm"># ── The RAG pattern (the #1 use case) ───────────────────</span>
+<span class="cm"># Pretend this is a real vector store retriever</span>
+retriever = vectorstore.as_retriever()
+
+<span class="cm"># We need BOTH the question AND the retrieved docs in the final prompt</span>
+rag_chain = (
+    <span class="cls">RunnableParallel</span>({
+        <span class="str">"context"</span>:  retriever,               <span class="cm"># retriever transforms question → docs</span>
+        <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>(),   <span class="cm"># passthrough keeps question intact</span>
+    })
+    <span class="op">|</span> <span class="cls">ChatPromptTemplate</span>.from_template(
+        <span class="str">"Answer using this context:\n{context}\n\nQuestion: {question}"</span>
+    )
+    <span class="op">|</span> model
+    <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+)
+
+answer = rag_chain.invoke(<span class="str">"What is the refund policy?"</span>)
+
+
+<span class="cm"># ── RunnablePassthrough.assign() — add keys to a dict ───</span>
+<span class="cm"># Takes existing input dict and adds new computed keys</span>
+chain = <span class="cls">RunnablePassthrough</span>.assign(
+    upper=<span class="kw">lambda</span> x: x[<span class="str">"text"</span>].upper(),
+    length=<span class="kw">lambda</span> x: <span class="fn">len</span>(x[<span class="str">"text"</span>])
+)
+
+result = chain.invoke({<span class="str">"text"</span>: <span class="str">"hello"</span>})
+<span class="fn">print</span>(result)
+<span class="cm"># {"text": "hello", "upper": "HELLO", "length": 5}</span>
+<span class="cm"># Original key preserved, new keys added</span>
+</pre>
+
+    <div class="info">
+      <strong>RunnablePassthrough.assign()</strong> is a power move: it takes the entire input dict, lets you compute new keys from it, and returns the original dict <em>plus</em> the new keys. This is the cleanest way to enrich data as it flows through a pipeline without losing any context.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 05 — RUNNABLELAMBDA                        -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="lambda">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-green">05</span><h2 class="stitle">RunnableLambda</h2></div>
+      <p class="sdesc">Wrap any Python function into a Runnable — your escape hatch</p>
+    </div>
+
+    <p style="color:#7a9ab8;margin-bottom:18px;">
+      <code>RunnableLambda</code> wraps a plain Python function into a <code>Runnable</code>, giving it <code>.invoke()</code>, <code>.stream()</code>, and <code>.batch()</code> — and letting you slot it anywhere in a chain with <code>|</code>. It's the universal adapter.
+    </p>
+
+<pre><span class="code-label">RunnableLambda</span><span class="kw">from</span> langchain_core.runnables <span class="kw">import</span> <span class="cls">RunnableLambda</span>
+
+<span class="cm"># ── Basic: wrap any function ─────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">word_count</span>(text: <span class="fn">str</span>) -> <span class="fn">dict</span>:
+    <span class="kw">return</span> {<span class="str">"text"</span>: text, <span class="str">"words"</span>: <span class="fn">len</span>(text.split())}
+
+counter = <span class="cls">RunnableLambda</span>(word_count)
+<span class="fn">print</span>(counter.invoke(<span class="str">"Hello world how are you"</span>))
+<span class="cm"># {"text": "Hello world how are you", "words": 5}</span>
+
+
+<span class="cm"># ── In a chain — preprocessing before the LLM ───────────</span>
+<span class="kw">def</span> <span class="fn">clean_input</span>(data: <span class="fn">dict</span>) -> <span class="fn">dict</span>:
+    <span class="kw">return</span> {
+        <span class="str">"question"</span>: data[<span class="str">"question"</span>].strip().lower(),
+        <span class="str">"domain"</span>:   data.get(<span class="str">"domain"</span>, <span class="str">"general"</span>),
+    }
+
+chain = (
+    <span class="cls">RunnableLambda</span>(clean_input)       <span class="cm"># ← preprocessing step</span>
+    <span class="op">|</span> prompt
+    <span class="op">|</span> model
+    <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+    <span class="op">|</span> <span class="cls">RunnableLambda</span>(<span class="fn">str</span>.upper)       <span class="cm"># ← postprocessing step</span>
+)
+
+
+<span class="cm"># ── Shorthand: coerce lambda/function automatically ──────</span>
+<span class="cm"># When LCEL sees a callable in a chain, it auto-wraps it</span>
+chain = (
+    (<span class="kw">lambda</span> x: {<span class="str">"question"</span>: x.strip()})  <span class="cm"># auto-wrapped</span>
+    <span class="op">|</span> prompt <span class="op">|</span> model <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+    <span class="op">|</span> (<span class="kw">lambda</span> s: s[:200])                 <span class="cm"># auto-wrapped</span>
+)
+
+
+<span class="cm"># ── Async support — use for I/O inside chains ────────────</span>
+<span class="kw">import</span> asyncio
+
+<span class="kw">async def</span> <span class="fn">fetch_user_context</span>(data: <span class="fn">dict</span>) -> <span class="fn">dict</span>:
+    <span class="cm"># Simulate async DB or API call</span>
+    <span class="kw">await</span> asyncio.sleep(<span class="num">0.1</span>)
+    <span class="kw">return</span> {**data, <span class="str">"user_tier"</span>: <span class="str">"premium"</span>}
+
+chain = <span class="cls">RunnableLambda</span>(fetch_user_context) <span class="op">|</span> prompt <span class="op">|</span> model
+result = <span class="kw">await</span> chain.ainvoke({<span class="str">"question"</span>: <span class="str">"How do I upgrade?"</span>})
+</pre>
+
+    <div class="warn">
+      <strong>⚠️ Use RunnableLambda sparingly:</strong> It's a great escape hatch for custom logic, but if you find yourself writing complex logic in lambdas, extract it into a proper function first — it's easier to test, debug, and maintain. Also note that lambdas don't stream — they buffer the entire output.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 06 — PATTERNS & PUTTING IT TOGETHER        -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="patterns">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-purple">06</span><h2 class="stitle">Key Patterns — Everything Together</h2></div>
+      <p class="sdesc">The real-world compositions you'll use again and again</p>
+    </div>
+
+<pre><span class="code-label">Pattern 1 — Basic chain</span><span class="cm"># The fundamental unit. Memorize this.</span>
+chain = prompt <span class="op">|</span> model <span class="op">|</span> parser
+result = chain.invoke({<span class="str">"question"</span>: <span class="str">"..."</span>})
+</pre>
+
+<pre><span class="code-label">Pattern 2 — Parallel + merge (RAG-style)</span><span class="cm"># Fan out → transform in parallel → merge → continue</span>
+full_chain = (
+    <span class="cls">RunnableParallel</span>({
+        <span class="str">"context"</span>:  retriever,
+        <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>(),
+    })
+    <span class="op">|</span> prompt
+    <span class="op">|</span> model
+    <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+)
+</pre>
+
+<pre><span class="code-label">Pattern 3 — Enrich as you go with .assign()</span><span class="cm"># Add computed keys at each step — never lose context</span>
+chain = (
+    <span class="cls">RunnablePassthrough</span>.assign(
+        docs=<span class="kw">lambda</span> x: retriever.invoke(x[<span class="str">"question"</span>])
+    )
+    <span class="op">|</span> <span class="cls">RunnablePassthrough</span>.assign(
+        summary=<span class="kw">lambda</span> x: summarize_docs(x[<span class="str">"docs"</span>])
+    )
+    <span class="op">|</span> final_prompt <span class="op">|</span> model <span class="op">|</span> parser
+)
+</pre>
+
+<pre><span class="code-label">Pattern 4 — Custom logic with RunnableLambda</span><span class="cm"># Slot in arbitrary Python anywhere in the pipeline</span>
+chain = (
+    <span class="cls">RunnableLambda</span>(<span class="kw">lambda</span> x: {<span class="str">"question"</span>: x.upper()})
+    <span class="op">|</span> prompt <span class="op">|</span> model
+    <span class="op">|</span> <span class="cls">RunnableLambda</span>(<span class="kw">lambda</span> msg: msg.content.strip())
+)
+</pre>
+
+<pre><span class="code-label">Pattern 5 — Full pipeline (real app)</span><span class="kw">from</span> langchain_core.runnables <span class="kw">import</span> <span class="cls">RunnableParallel</span>, <span class="cls">RunnablePassthrough</span>, <span class="cls">RunnableLambda</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> langchain_core.output_parsers <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+model = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>, temperature=<span class="num">0</span>)
+
+<span class="cm"># Step 1 — preprocess input</span>
+preprocess = <span class="cls">RunnableLambda</span>(<span class="kw">lambda</span> x: {<span class="str">"question"</span>: x.strip()})
+
+<span class="cm"># Step 2 — parallel: get context + keep question</span>
+gather = <span class="cls">RunnableParallel</span>({
+    <span class="str">"context"</span>:  <span class="cls">RunnableLambda</span>(<span class="kw">lambda</span> x: <span class="str">"[relevant docs here]"</span>),
+    <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>(),
+})
+
+<span class="cm"># Step 3 — prompt + model + parse</span>
+answer = (
+    <span class="cls">ChatPromptTemplate</span>.from_template(
+        <span class="str">"Context: {context}\nAnswer: {question}"</span>
+    )
+    <span class="op">|</span> model
+    <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+)
+
+<span class="cm"># Full pipeline</span>
+pipeline = preprocess <span class="op">|</span> gather <span class="op">|</span> answer
+
+<span class="cm"># Use it</span>
+<span class="fn">print</span>(pipeline.invoke(<span class="str">"  What is LCEL?  "</span>))
+
+<span class="cm"># Stream it</span>
+<span class="kw">for</span> chunk <span class="kw">in</span> pipeline.stream(<span class="str">"What is LCEL?"</span>):
+    <span class="fn">print</span>(chunk, end=<span class="str">""</span>, flush=<span class="op">True</span>)
+
+<span class="cm"># Batch it</span>
+answers = pipeline.batch([<span class="str">"What is LCEL?"</span>, <span class="str">"What is LangGraph?"</span>])
+</pre>
+
+    <div class="green-box">
+      <strong>✅ The mental model:</strong> Think of an LCEL chain like a unix pipeline — <code>cat file | grep error | wc -l</code>. Each command takes stdin, transforms it, writes to stdout. Each Runnable takes input, transforms it, passes output forward. The <code>|</code> is literally the same idea.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SUMMARY                                    -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section>
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-green">✓</span><h2 class="stitle">Quick Reference</h2></div>
+    </div>
+    <div class="summary-wrap">
+      <div class="sum-card">
+        <h4>⚡ The Pipe |</h4>
+        <ul>
+          <li>Builds a <code>RunnableSequence</code> — lazy, not executed yet</li>
+          <li>Output of left must match input type of right</li>
+          <li>Any <code>Runnable</code> can be piped — prompts, models, parsers, lambdas</li>
+          <li>Dict literals <code>{}</code> auto-become <code>RunnableParallel</code></li>
+        </ul>
+      </div>
+      <div class="sum-card">
+        <h4>🔁 Runnable Methods</h4>
+        <ul>
+          <li><code>.invoke(input)</code> → single output, blocking</li>
+          <li><code>.stream(input)</code> → iterator of chunks</li>
+          <li><code>.batch([inputs])</code> → parallel execution</li>
+          <li>Prefix <code>a</code> for async: <code>ainvoke</code>, <code>astream</code>, <code>abatch</code></li>
+        </ul>
+      </div>
+      <div class="sum-card">
+        <h4>🔀 RunnableParallel</h4>
+        <ul>
+          <li>Fans one input out to multiple chains simultaneously</li>
+          <li>Returns a merged dict of all outputs</li>
+          <li>Dict literal syntax <code>{"key": chain}</code> is shorthand</li>
+          <li>Core building block of RAG pipelines</li>
+        </ul>
+      </div>
+      <div class="sum-card">
+        <h4>➡️ Passthrough &amp; Lambda</h4>
+        <ul>
+          <li><code>RunnablePassthrough()</code> — returns input unchanged</li>
+          <li><code>RunnablePassthrough.assign(k=fn)</code> — add computed keys</li>
+          <li><code>RunnableLambda(fn)</code> — wrap any Python function</li>
+          <li>Callables in chains are auto-wrapped as <code>RunnableLambda</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="info" style="margin-top:18px;">
+      <strong>The one formula to rule them all:</strong> &nbsp;<code>preprocess | RunnableParallel({...}) | prompt | model | parser</code><br/>
+      Master this shape and you can build 90% of LangChain applications from memory.
+    </div>
+  </section>
+
+</div>
+
+<footer>LangChain Mastery Guide · Phase 2, Section 2.1 · February 2026 · LangChain v0.3+ / LCEL</footer>
+</body>
+</html>
