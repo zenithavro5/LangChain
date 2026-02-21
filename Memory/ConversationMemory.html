@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LangChain 3.1 — Conversation Memory</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --bg2:       #0a0f14;
+      --surface:   #111820;
+      --surface2:  #161f2a;
+      --surface3:  #1c2735;
+      --border:    #1e2d3d;
+      --border2:   #243648;
+      --ink:       #cdd9e5;
+      --ink2:      #8dafcc;
+      --muted:     #445d74;
+      --muted2:    #5a7a94;
+
+      /* accent palette — green-teal spectrum */
+      --g1: #00d4aa;   /* bright teal */
+      --g2: #00b896;   /* mid teal */
+      --g3: #009678;   /* deep teal */
+      --g4: #00f5c4;   /* neon highlight */
+
+      /* memory type colors */
+      --c-buffer:   #3b82f6;   /* blue  */
+      --c-window:   #a855f7;   /* purple */
+      --c-summary:  #f59e0b;   /* amber */
+      --c-hybrid:   #10b981;   /* emerald */
+
+      --code-bg: #060d14;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{
+      background:var(--bg);
+      color:var(--ink);
+      font-family:'Inter',sans-serif;
+      font-size:15px;
+      line-height:1.75;
+      min-height:100vh;
+    }
+
+    /* ── NAV ── */
+    nav{
+      background:rgba(10,15,20,0.95);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border);
+      padding:11px 44px;
+      display:flex;gap:4px;flex-wrap:wrap;align-items:center;
+      position:sticky;top:0;z-index:200;
+    }
+    .nl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-right:10px;}
+    nav a{
+      color:var(--muted2);text-decoration:none;font-size:11px;
+      font-family:'JetBrains Mono',monospace;
+      padding:4px 11px;border-radius:4px;
+      border:1px solid transparent;transition:all 0.15s;
+    }
+    nav a:hover{color:var(--g1);border-color:rgba(0,212,170,0.25);background:rgba(0,212,170,0.05);}
+
+    /* ── HERO ── */
+    .hero{
+      padding:80px 56px 68px;
+      background:
+        radial-gradient(ellipse 60% 50% at 85% 20%, rgba(0,212,170,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 5%  80%, rgba(59,130,246,0.06) 0%, transparent 55%),
+        var(--bg2);
+      border-bottom:1px solid var(--border);
+      position:relative;overflow:hidden;
+    }
+
+    /* animated memory dots background */
+    .hero-dots{
+      position:absolute;inset:0;overflow:hidden;pointer-events:none;
+    }
+    .dot{
+      position:absolute;width:2px;height:2px;border-radius:50%;
+      background:var(--g1);opacity:0;
+      animation:blink var(--d,3s) var(--delay,0s) infinite;
+    }
+    @keyframes blink{
+      0%,100%{opacity:0;transform:scale(1);}
+      50%{opacity:var(--op,0.4);transform:scale(1.5);}
+    }
+
+    .hero-chip{
+      display:inline-flex;align-items:center;gap:8px;
+      background:rgba(0,212,170,0.08);
+      border:1px solid rgba(0,212,170,0.2);
+      color:var(--g1);
+      font-family:'JetBrains Mono',monospace;font-size:10.5px;
+      letter-spacing:2.5px;text-transform:uppercase;
+      padding:6px 14px;border-radius:20px;margin-bottom:24px;
+    }
+    .chip-dot{width:6px;height:6px;border-radius:50%;background:var(--g1);animation:blink 1.5s infinite;--op:1;}
+
+    .hero h1{
+      font-family:'Fraunces',serif;
+      font-size:clamp(2.4rem,5.5vw,3.8rem);
+      font-weight:700;line-height:1.05;
+      color:#e6f0f8;
+      margin-bottom:18px;letter-spacing:-0.5px;
+    }
+    .hero h1 .accent{color:var(--g1);font-style:italic;}
+    .hero-desc{
+      color:var(--muted2);max-width:600px;
+      font-size:15px;line-height:1.75;font-weight:300;
+    }
+    .hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;}
+    .htag{
+      font-family:'JetBrains Mono',monospace;font-size:11px;
+      padding:5px 13px;border-radius:3px;border:1px solid;
+    }
+    .ht-b{background:rgba(59,130,246,0.08);color:#93c5fd;border-color:rgba(59,130,246,0.2);}
+    .ht-p{background:rgba(168,85,247,0.08);color:#d8b4fe;border-color:rgba(168,85,247,0.2);}
+    .ht-a{background:rgba(245,158,11,0.08);color:#fcd34d;border-color:rgba(245,158,11,0.2);}
+    .ht-e{background:rgba(16,185,129,0.08);color:#6ee7b7;border-color:rgba(16,185,129,0.2);}
+    .ht-g{background:rgba(0,212,170,0.08);color:var(--g1);border-color:rgba(0,212,170,0.2);}
+
+    /* ── LAYOUT ── */
+    .page{max-width:960px;margin:0 auto;padding:60px 36px;display:flex;flex-direction:column;gap:80px;}
+
+    /* ── SECTION HEADER ── */
+    .sh{margin-bottom:30px;}
+    .sh-row{display:flex;align-items:center;gap:11px;margin-bottom:5px;}
+    .snum{
+      font-family:'JetBrains Mono',monospace;font-size:10px;
+      padding:3px 10px;border-radius:3px;letter-spacing:2px;font-weight:600;border:1px solid;
+    }
+    .sn-g{background:rgba(0,212,170,0.08);color:var(--g1);border-color:rgba(0,212,170,0.2);}
+    .sn-b{background:rgba(59,130,246,0.08);color:#93c5fd;border-color:rgba(59,130,246,0.2);}
+    .sn-p{background:rgba(168,85,247,0.08);color:#c4b5fd;border-color:rgba(168,85,247,0.2);}
+    .sn-a{background:rgba(245,158,11,0.08);color:#fcd34d;border-color:rgba(245,158,11,0.2);}
+    .sn-e{background:rgba(16,185,129,0.08);color:#6ee7b7;border-color:rgba(16,185,129,0.2);}
+    .stitle{font-family:'Fraunces',serif;font-size:1.6rem;font-weight:600;color:#e6f0f8;letter-spacing:-0.3px;}
+    .sdesc{color:var(--muted2);font-size:13.5px;margin-top:3px;}
+
+    /* ── CALLOUTS ── */
+    .box{border-radius:6px;padding:17px 21px;margin:15px 0;font-size:13.5px;color:var(--muted2);border:1px solid;border-left:3px solid;}
+    .box strong{font-size:11.5px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:4px;}
+    .box-g{background:rgba(0,212,170,0.04);border-color:rgba(0,212,170,0.12);border-left-color:var(--g1);}
+    .box-g strong{color:var(--g1);}
+    .box-b{background:rgba(59,130,246,0.04);border-color:rgba(59,130,246,0.12);border-left-color:var(--c-buffer);}
+    .box-b strong{color:#93c5fd;}
+    .box-p{background:rgba(168,85,247,0.04);border-color:rgba(168,85,247,0.12);border-left-color:var(--c-window);}
+    .box-p strong{color:#c4b5fd;}
+    .box-a{background:rgba(245,158,11,0.04);border-color:rgba(245,158,11,0.12);border-left-color:var(--c-summary);}
+    .box-a strong{color:#fcd34d;}
+    .box-e{background:rgba(16,185,129,0.04);border-color:rgba(16,185,129,0.12);border-left-color:var(--c-hybrid);}
+    .box-e strong{color:#6ee7b7;}
+    .box-r{background:rgba(239,68,68,0.04);border-color:rgba(239,68,68,0.12);border-left-color:#ef4444;}
+    .box-r strong{color:#fca5a5;}
+
+    /* ── CODE ── */
+    pre{
+      background:var(--code-bg);border:1px solid var(--border);
+      border-radius:8px;padding:22px 24px;overflow-x:auto;
+      font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.8;
+      margin:15px 0;position:relative;
+    }
+    .cl{position:absolute;top:0;left:0;right:0;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);padding:6px 18px;font-size:9.5px;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-radius:8px 8px 0 0;}
+    pre.lb{padding-top:44px;}
+    .kw{color:#ff7b93;} .fn{color:#79c0ff;} .str{color:#a5d6a7;}
+    .cm{color:#3d5a70;font-style:italic;} .cls{color:#ffa657;}
+    .op{color:#79c0ff;} .num{color:#f0a88a;} .dec{color:#ff9580;}
+    code{font-family:'JetBrains Mono',monospace;background:var(--surface3);border:1px solid var(--border2);padding:2px 7px;border-radius:4px;font-size:12px;color:var(--g1);}
+
+    /* ── STATELESS DIAGRAM ── */
+    .stateless-vis{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;padding:30px;margin:18px 0;
+    }
+    .sv-row{display:flex;align-items:center;gap:0;margin-bottom:20px;}
+    .sv-row:last-child{margin-bottom:0;}
+    .sv-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);min-width:90px;letter-spacing:1px;}
+    .sv-msgs{display:flex;gap:6px;flex:1;flex-wrap:wrap;}
+    .sv-msg{
+      font-family:'JetBrains Mono',monospace;font-size:11px;
+      padding:6px 11px;border-radius:4px;border:1px solid;
+    }
+    .sm-h{background:rgba(59,130,246,0.08);color:#93c5fd;border-color:rgba(59,130,246,0.2);}
+    .sm-a{background:rgba(168,85,247,0.08);color:#c4b5fd;border-color:rgba(168,85,247,0.2);}
+    .sm-lost{background:rgba(239,68,68,0.06);color:#fca5a5;border-color:rgba(239,68,68,0.2);opacity:0.4;text-decoration:line-through;}
+    .sv-arrow{padding:0 12px;color:var(--muted);font-size:18px;}
+    .sv-box{
+      padding:10px 16px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11.5px;
+    }
+    .svb-llm{background:rgba(0,212,170,0.08);color:var(--g1);border:1px solid rgba(0,212,170,0.2);}
+    .sv-problem{
+      background:rgba(239,68,68,0.06);border:1px dashed rgba(239,68,68,0.3);
+      border-radius:6px;padding:12px 16px;
+      font-family:'JetBrains Mono',monospace;font-size:11px;color:#fca5a5;
+      text-align:center;margin-top:10px;
+    }
+
+    /* ── MEMORY TYPE CARDS ── */
+    .mem-header{
+      display:flex;align-items:center;gap:14px;
+      padding:22px 26px 18px;
+      border-bottom:1px solid var(--border);
+    }
+    .mem-icon{font-size:26px;}
+    .mem-title-wrap{}
+    .mem-class{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;margin-bottom:2px;}
+    .mem-subtitle{font-size:13px;color:var(--muted2);}
+    .mem-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;overflow:hidden;margin-bottom:14px;
+    }
+    .mem-body{padding:22px 26px;}
+
+    .mc-buffer .mem-header{background:rgba(59,130,246,0.05);}
+    .mc-buffer .mem-class{color:var(--c-buffer);}
+    .mc-buffer{border-color:rgba(59,130,246,0.2);}
+
+    .mc-window .mem-header{background:rgba(168,85,247,0.05);}
+    .mc-window .mem-class{color:var(--c-window);}
+    .mc-window{border-color:rgba(168,85,247,0.2);}
+
+    .mc-summary .mem-header{background:rgba(245,158,11,0.05);}
+    .mc-summary .mem-class{color:var(--c-summary);}
+    .mc-summary{border-color:rgba(245,158,11,0.2);}
+
+    .mc-hybrid .mem-header{background:rgba(16,185,129,0.05);}
+    .mc-hybrid .mem-class{color:var(--c-hybrid);}
+    .mc-hybrid{border-color:rgba(16,185,129,0.2);}
+
+    /* ── MEMORY VISUALIZER ── */
+    .mem-vis{
+      background:var(--code-bg);border:1px solid var(--border);
+      border-radius:8px;padding:20px 22px;margin:14px 0;
+    }
+    .mv-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted);letter-spacing:2px;margin-bottom:14px;text-transform:uppercase;}
+    .mv-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
+    .mv-row:last-child{margin-bottom:0;}
+    .mv-turn{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted);min-width:52px;}
+    .mv-msg{
+      font-family:'JetBrains Mono',monospace;font-size:11px;
+      padding:5px 10px;border-radius:3px;border:1px solid;
+      white-space:nowrap;
+    }
+    .mm-h{background:rgba(59,130,246,0.08);color:#93c5fd;border-color:rgba(59,130,246,0.2);}
+    .mm-a{background:rgba(168,85,247,0.08);color:#c4b5fd;border-color:rgba(168,85,247,0.2);}
+    .mm-sum{background:rgba(245,158,11,0.08);color:#fcd34d;border-color:rgba(245,158,11,0.2);}
+    .mm-gone{opacity:0.2;text-decoration:line-through;}
+    .mm-arrow{color:var(--muted);font-size:14px;margin:0 4px;}
+    .mv-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;padding-left:56px;font-style:italic;}
+
+    /* ── TRADEOFF TABLE ── */
+    .table-wrap{overflow-x:auto;margin:16px 0;}
+    table{width:100%;border-collapse:collapse;font-size:13px;min-width:540px;}
+    thead tr{background:var(--surface2);}
+    th{
+      color:var(--g1);font-family:'JetBrains Mono',monospace;font-size:10px;
+      text-transform:uppercase;letter-spacing:1.5px;
+      padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);
+    }
+    td{padding:11px 16px;border-bottom:1px solid rgba(30,45,61,0.5);color:var(--muted2);vertical-align:top;}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(255,255,255,0.012);}
+    td:first-child{font-family:'JetBrains Mono',monospace;font-size:11.5px;}
+    .td-b{color:var(--c-buffer)!important;}
+    .td-p{color:var(--c-window)!important;}
+    .td-a{color:var(--c-summary)!important;}
+    .td-e{color:var(--c-hybrid)!important;}
+    .badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid;}
+    .bad-g{background:rgba(16,185,129,0.08);color:#6ee7b7;border-color:rgba(16,185,129,0.2);}
+    .bad-y{background:rgba(245,158,11,0.08);color:#fcd34d;border-color:rgba(245,158,11,0.2);}
+    .bad-r{background:rgba(239,68,68,0.08);color:#fca5a5;border-color:rgba(239,68,68,0.2);}
+
+    /* ── SUMMARY GRID ── */
+    .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:600px){.sum-grid{grid-template-columns:1fr;}}
+    .sum-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:8px;padding:20px;border-top:2px solid;
+    }
+    .sc-b{border-top-color:var(--c-buffer);}
+    .sc-p{border-top-color:var(--c-window);}
+    .sc-a{border-top-color:var(--c-summary);}
+    .sc-e{border-top-color:var(--c-hybrid);}
+    .sum-card h4{font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:#e6f0f8;margin-bottom:10px;}
+    .sum-card li{font-size:12.5px;color:var(--muted2);list-style:none;padding:3px 0;display:flex;gap:8px;}
+    .sum-card li::before{content:'›';color:var(--muted);flex-shrink:0;font-weight:700;}
+
+    hr{border:none;border-top:1px solid var(--border);}
+    footer{text-align:center;padding:32px;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;border-top:1px solid var(--border);}
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="nl">3.1</span>
+  <a href="#stateless">Why Memory?</a>
+  <a href="#buffer">BufferMemory</a>
+  <a href="#window">WindowMemory</a>
+  <a href="#summary">SummaryMemory</a>
+  <a href="#hybrid">Hybrid</a>
+  <a href="#modern">Modern Pattern</a>
+  <a href="#compare">Comparison</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-dots" id="dots"></div>
+  <div class="hero-chip"><div class="chip-dot"></div>Phase 3 · Section 3.1</div>
+  <h1>Conversation<br/><span class="accent">Memory</span></h1>
+  <p class="hero-desc">LLMs are stateless — they forget everything between calls. Memory is how you give them context, continuity, and the ability to hold a real conversation.</p>
+  <div class="hero-tags">
+    <span class="htag ht-g">Why memory exists</span>
+    <span class="htag ht-b">ConversationBufferMemory</span>
+    <span class="htag ht-p">ConversationBufferWindowMemory</span>
+    <span class="htag ht-a">ConversationSummaryMemory</span>
+    <span class="htag ht-e">ConversationSummaryBufferMemory</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 01 — WHY STATELESS LLMs NEED MEMORY           -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="stateless">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-g">01</span><h2 class="stitle">Why Stateless LLMs Need Memory Management</h2></div>
+      <p class="sdesc">The core problem every chat application must solve</p>
+    </div>
+
+    <p style="color:var(--muted2);margin-bottom:20px;">
+      Every time you call an LLM API, it starts completely fresh. It has no recollection of any previous exchange — even if you called it one second ago. This is called <strong style="color:var(--ink)">statelessness</strong>. It's a fundamental property of transformer models, not a bug.
+    </p>
+
+    <div class="stateless-vis">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:20px;">THE STATELESS PROBLEM</div>
+
+      <div class="sv-row">
+        <div class="sv-label">CALL 1</div>
+        <div class="sv-msgs">
+          <div class="sv-msg sm-h">Hi, my name is Layla</div>
+        </div>
+        <div class="sv-arrow">→</div>
+        <div class="sv-box svb-llm">LLM</div>
+        <div class="sv-arrow">→</div>
+        <div class="sv-msg sm-a">Nice to meet you, Layla!</div>
+      </div>
+
+      <div class="sv-row">
+        <div class="sv-label">CALL 2</div>
+        <div class="sv-msgs">
+          <div class="sv-msg sm-h">What's my name?</div>
+          <div class="sv-msg sm-lost">Hi, my name is Layla</div>
+          <div class="sv-msg sm-lost">Nice to meet you, Layla!</div>
+        </div>
+        <div class="sv-arrow">→</div>
+        <div class="sv-box svb-llm">LLM</div>
+        <div class="sv-arrow">→</div>
+        <div class="sv-msg sm-a" style="color:#fca5a5;border-color:rgba(239,68,68,0.3)">I don't know your name.</div>
+      </div>
+
+      <div class="sv-problem">⚠️ Without memory management — the LLM never sees prior messages. Every call is a blank slate.</div>
+    </div>
+
+    <div class="box box-g">
+      <strong>The solution</strong>
+      You must manually pass the entire conversation history on every API call. Memory classes automate this — they store messages, manage what gets included, and inject history into your prompts at the right time.
+    </div>
+
+    <p style="color:var(--muted2);margin-top:18px;margin-bottom:14px;">
+      There's a catch: LLMs have a <strong style="color:var(--ink)">context window limit</strong> (the max tokens they can process at once). A long conversation will eventually overflow the context window and fail — or silently drop early messages. This is why we have four different memory strategies with different tradeoffs.
+    </p>
+
+    <div class="box box-r">
+      <strong>The core tradeoff</strong>
+      More history = better context = more accurate responses. More history = more tokens per call = higher cost + slower responses + eventual context overflow. Every memory type makes a different bet on how to balance this.
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 02 — ConversationBufferMemory                  -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="buffer">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-b">02</span><h2 class="stitle">ConversationBufferMemory</h2></div>
+      <p class="sdesc">The simplest approach — keep everything, forget nothing</p>
+    </div>
+
+    <div class="mem-card mc-buffer">
+      <div class="mem-header">
+        <div class="mem-icon">📼</div>
+        <div class="mem-title-wrap">
+          <div class="mem-class">ConversationBufferMemory</div>
+          <div class="mem-subtitle">Stores the complete raw conversation history. No truncation, no summarization.</div>
+        </div>
+      </div>
+      <div class="mem-body">
+
+        <div class="mem-vis">
+          <div class="mv-label">How memory grows over time</div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 1</div>
+            <div class="mv-msg mm-h">H: What is Python?</div>
+            <div class="mm-arrow">→</div>
+            <div class="mv-msg mm-a">A: Python is a language...</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 2</div>
+            <div class="mv-msg mm-h">H: What is Python?</div>
+            <div class="mv-msg mm-a">A: Python is a language...</div>
+            <div class="mv-msg mm-h">H: Show me a loop</div>
+            <div class="mm-arrow">→</div>
+            <div class="mv-msg mm-a">A: for i in range...</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 3</div>
+            <div class="mv-msg mm-h">H: What is Python?</div>
+            <div class="mv-msg mm-a">A: Python is a language...</div>
+            <div class="mv-msg mm-h">H: Show me a loop</div>
+            <div class="mv-msg mm-a">A: for i in range...</div>
+            <div class="mv-msg mm-h">H: Now classes</div>
+            <div class="mm-arrow">→</div>
+            <div class="mv-msg mm-a">A: class MyClass...</div>
+          </div>
+          <div class="mv-note">Every call includes ALL previous messages → growing unbounded</div>
+        </div>
+
+<pre class="lb"><span class="cl">ConversationBufferMemory</span>
+<span class="kw">from</span> langchain.memory <span class="kw">import</span> <span class="cls">ConversationBufferMemory</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>, <span class="cls">MessagesPlaceholder</span>
+<span class="kw">from</span> langchain_core.runnables.history <span class="kw">import</span> <span class="cls">RunnableWithMessageHistory</span>
+
+<span class="cm"># ── Basic usage — inspect the memory object ──────────────</span>
+memory = <span class="cls">ConversationBufferMemory</span>(return_messages=<span class="op">True</span>)
+
+memory.save_context(
+    {<span class="str">"input"</span>:  <span class="str">"My name is Layla."</span>},
+    {<span class="str">"output"</span>: <span class="str">"Nice to meet you, Layla!"</span>}
+)
+memory.save_context(
+    {<span class="str">"input"</span>:  <span class="str">"I'm learning Python."</span>},
+    {<span class="str">"output"</span>: <span class="str">"That's great! Python is beginner-friendly."</span>}
+)
+
+<span class="cm"># See what gets injected into prompts</span>
+<span class="fn">print</span>(memory.load_memory_variables({}))
+<span class="cm"># {"history": [HumanMessage(...), AIMessage(...), ...]}</span>
+
+<span class="cm"># ── With LCEL chain ──────────────────────────────────────</span>
+model = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+
+prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"You are a helpful assistant."</span>),
+    <span class="cls">MessagesPlaceholder</span>(variable_name=<span class="str">"history"</span>),
+    (<span class="str">"human"</span>, <span class="str">"{input}"</span>),
+])
+
+chain = prompt <span class="op">|</span> model
+
+<span class="cm"># Manual memory injection</span>
+<span class="kw">def</span> <span class="fn">chat</span>(user_input: <span class="fn">str</span>) -> <span class="fn">str</span>:
+    history = memory.load_memory_variables({})[<span class="str">"history"</span>]
+    response = chain.invoke({<span class="str">"input"</span>: user_input, <span class="str">"history"</span>: history})
+    memory.save_context(
+        {<span class="str">"input"</span>: user_input},
+        {<span class="str">"output"</span>: response.content}
+    )
+    <span class="kw">return</span> response.content
+
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"My name is Layla."</span>))   <span class="cm"># Nice to meet you!</span>
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"What's my name?"</span>))    <span class="cm"># Your name is Layla.</span>
+</pre>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+          <div class="box box-b" style="margin:0;">
+            <strong>✓ When to use</strong>
+            Short conversations · Demos · When you need 100% accurate recall · When context window cost doesn't matter
+          </div>
+          <div class="box box-r" style="margin:0;">
+            <strong>✗ Avoid when</strong>
+            Long conversations · Cost-sensitive production apps · Any session that could run for many turns
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 03 — ConversationBufferWindowMemory            -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="window">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-p">03</span><h2 class="stitle">ConversationBufferWindowMemory</h2></div>
+      <p class="sdesc">A sliding window — keep only the last K exchanges</p>
+    </div>
+
+    <div class="mem-card mc-window">
+      <div class="mem-header">
+        <div class="mem-icon">🪟</div>
+        <div class="mem-title-wrap">
+          <div class="mem-class">ConversationBufferWindowMemory</div>
+          <div class="mem-subtitle">Remembers the last K human/AI exchange pairs. Older messages are silently dropped.</div>
+        </div>
+      </div>
+      <div class="mem-body">
+
+        <div class="mem-vis">
+          <div class="mv-label">Sliding window with k=2 (keeps last 2 exchanges)</div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 1</div>
+            <div class="mv-msg mm-h">H: My name is Layla</div>
+            <div class="mv-msg mm-a">A: Hi Layla!</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 2</div>
+            <div class="mv-msg mm-h">H: My name is Layla</div>
+            <div class="mv-msg mm-a">A: Hi Layla!</div>
+            <div class="mv-msg mm-h">H: I like Python</div>
+            <div class="mv-msg mm-a">A: Python is great!</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 3</div>
+            <div class="mv-msg mm-h mm-gone">H: My name is Layla</div>
+            <div class="mv-msg mm-a mm-gone">A: Hi Layla!</div>
+            <div class="mv-msg mm-h">H: I like Python</div>
+            <div class="mv-msg mm-a">A: Python is great!</div>
+            <div class="mv-msg mm-h">H: Show me a loop</div>
+            <div class="mv-msg mm-a">A: for i in range...</div>
+          </div>
+          <div class="mv-note">Turn 1 dropped at Turn 3 — model now has no memory of "Layla"</div>
+        </div>
+
+<pre class="lb"><span class="cl">ConversationBufferWindowMemory</span>
+<span class="kw">from</span> langchain.memory <span class="kw">import</span> <span class="cls">ConversationBufferWindowMemory</span>
+
+<span class="cm"># k=2 means remember last 2 complete exchanges (human + AI pairs)</span>
+memory = <span class="cls">ConversationBufferWindowMemory</span>(
+    k=<span class="num">2</span>,                    <span class="cm"># window size</span>
+    return_messages=<span class="op">True</span>    <span class="cm"># return Message objects (not raw strings)</span>
+)
+
+memory.save_context({<span class="str">"input"</span>: <span class="str">"My name is Layla."</span>},   {<span class="str">"output"</span>: <span class="str">"Hi Layla!"</span>})
+memory.save_context({<span class="str">"input"</span>: <span class="str">"I like Python."</span>},      {<span class="str">"output"</span>: <span class="str">"Python is great!"</span>})
+memory.save_context({<span class="str">"input"</span>: <span class="str">"Show me a loop."</span>},     {<span class="str">"output"</span>: <span class="str">"for i in range..."</span>})
+
+<span class="cm"># After 3 saves with k=2 — turn 1 is gone</span>
+history = memory.load_memory_variables({})
+<span class="cm"># Only last 2 exchanges remain</span>
+<span class="cm"># "My name is Layla" → DROPPED. Model won't know name anymore.</span>
+<span class="fn">print</span>(<span class="fn">len</span>(history[<span class="str">"history"</span>]))  <span class="cm"># 4 messages (2 exchanges × 2 messages)</span>
+</pre>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+          <div class="box box-p" style="margin:0;">
+            <strong>✓ When to use</strong>
+            Long support chats where only recent context matters · Cost-controlled production · Contexts like "fix this code" where old exchanges are irrelevant
+          </div>
+          <div class="box box-r" style="margin:0;">
+            <strong>✗ Avoid when</strong>
+            User provides key info early (name, preferences) that you need later · Any conversation needing long-term recall
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 04 — ConversationSummaryMemory                 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="summary">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-a">04</span><h2 class="stitle">ConversationSummaryMemory</h2></div>
+      <p class="sdesc">Use an LLM to compress history into a running summary</p>
+    </div>
+
+    <div class="mem-card mc-summary">
+      <div class="mem-header">
+        <div class="mem-icon">📝</div>
+        <div class="mem-title-wrap">
+          <div class="mem-class">ConversationSummaryMemory</div>
+          <div class="mem-subtitle">After each exchange, an LLM rewrites the entire history as a compact summary. Raw messages are never stored.</div>
+        </div>
+      </div>
+      <div class="mem-body">
+
+        <div class="mem-vis">
+          <div class="mv-label">Every turn compresses history into one growing summary block</div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 1</div>
+            <div class="mv-msg mm-sum">Summary: "User introduced themselves as Layla, a Python learner."</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 2</div>
+            <div class="mv-msg mm-sum">Summary: "Layla is learning Python. Discussed for loops with examples."</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Turn 3</div>
+            <div class="mv-msg mm-sum">Summary: "Layla is learning Python. Covered for loops and OOP classes. Interested in data structures next."</div>
+          </div>
+          <div class="mv-note">Fixed token cost regardless of turns — but an LLM call on every save</div>
+        </div>
+
+<pre class="lb"><span class="cl">ConversationSummaryMemory</span>
+<span class="kw">from</span> langchain.memory <span class="kw">import</span> <span class="cls">ConversationSummaryMemory</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+
+<span class="cm"># Needs an LLM to summarize — uses extra API calls</span>
+summary_llm = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>, temperature=<span class="num">0</span>)
+
+memory = <span class="cls">ConversationSummaryMemory</span>(
+    llm=summary_llm,         <span class="cm"># used internally to summarize</span>
+    return_messages=<span class="op">True</span>    <span class="cm"># returns a SystemMessage with the summary</span>
+)
+
+memory.save_context(
+    {<span class="str">"input"</span>:  <span class="str">"My name is Layla, I'm learning Python."</span>},
+    {<span class="str">"output"</span>: <span class="str">"Great choice! Python is very beginner friendly."</span>}
+)
+memory.save_context(
+    {<span class="str">"input"</span>:  <span class="str">"Can you show me a for loop?"</span>},
+    {<span class="str">"output"</span>: <span class="str">"Sure! for i in range(10): print(i)"</span>}
+)
+
+<span class="cm"># Inspect the compressed summary</span>
+history = memory.load_memory_variables({})
+<span class="fn">print</span>(history[<span class="str">"history"</span>])
+<span class="cm"># [SystemMessage(content="The human introduced themselves as Layla,</span>
+<span class="cm">#  a Python learner. The AI showed a for loop example.")]</span>
+
+<span class="cm"># ── Inspect the raw summary text ─────────────────────────</span>
+<span class="fn">print</span>(memory.buffer)
+<span class="cm"># "The human is Layla, learning Python. Discussed for loops."</span>
+</pre>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+          <div class="box box-a" style="margin:0;">
+            <strong>✓ When to use</strong>
+            Very long conversations · When key facts from early turns must survive · Cost-per-call is less important than cost-over-time
+          </div>
+          <div class="box box-r" style="margin:0;">
+            <strong>✗ Avoid when</strong>
+            Short conversations (summarization overhead not worth it) · When LLM summarization itself might misrepresent details · Latency-sensitive apps
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 05 — ConversationSummaryBufferMemory           -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="hybrid">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-e">05</span><h2 class="stitle">ConversationSummaryBufferMemory</h2></div>
+      <p class="sdesc">The hybrid — recent messages verbatim, older messages summarized</p>
+    </div>
+
+    <div class="mem-card mc-hybrid">
+      <div class="mem-header">
+        <div class="mem-icon">⚗️</div>
+        <div class="mem-title-wrap">
+          <div class="mem-class">ConversationSummaryBufferMemory</div>
+          <div class="mem-subtitle">Keeps recent messages raw. Summarizes older messages that exceed the token limit. Best of both worlds.</div>
+        </div>
+      </div>
+      <div class="mem-body">
+
+        <div class="mem-vis">
+          <div class="mv-label">Recent messages raw · Older messages summarized · Token budget fixed</div>
+          <div class="mv-row">
+            <div class="mv-turn">Older</div>
+            <div class="mv-msg mm-sum">Summary: "Layla is learning Python. Discussed basics and loops."</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Recent</div>
+            <div class="mv-msg mm-h">H: Can you show me list comprehensions?</div>
+            <div class="mv-msg mm-a">A: Sure! [x for x in range(10)]</div>
+          </div>
+          <div class="mv-row">
+            <div class="mv-turn">Now</div>
+            <div class="mv-msg mm-h">H: How about dict comprehensions?</div>
+          </div>
+          <div class="mv-note">Summary grows slowly · Recent context stays verbatim · Token budget enforced by max_token_limit</div>
+        </div>
+
+<pre class="lb"><span class="cl">ConversationSummaryBufferMemory — the recommended default</span>
+<span class="kw">from</span> langchain.memory <span class="kw">import</span> <span class="cls">ConversationSummaryBufferMemory</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+
+model = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+
+memory = <span class="cls">ConversationSummaryBufferMemory</span>(
+    llm=model,
+    max_token_limit=<span class="num">500</span>,     <span class="cm"># keep raw messages until they exceed 500 tokens</span>
+    return_messages=<span class="op">True</span>,   <span class="cm"># then summarize the older portion</span>
+)
+
+<span class="cm"># Simulate a growing conversation</span>
+exchanges = [
+    (<span class="str">"My name is Layla."</span>,               <span class="str">"Hi Layla!"</span>),
+    (<span class="str">"I'm learning Python."</span>,             <span class="str">"Great choice!"</span>),
+    (<span class="str">"Explain for loops."</span>,               <span class="str">"for i in range(10): ..."</span>),
+    (<span class="str">"Now list comprehensions."</span>,          <span class="str">"[x for x in range(10)]"</span>),
+    (<span class="str">"And dict comprehensions?"</span>,          <span class="str">"{k: v for k, v in ...}"</span>),
+    (<span class="str">"What about lambda functions?"</span>,      <span class="str">"lambda x: x*2"</span>),
+    (<span class="str">"Show me decorators."</span>,              <span class="str">"@decorator syntax..."</span>),
+]
+
+<span class="kw">for</span> human, ai <span class="kw">in</span> exchanges:
+    memory.save_context({<span class="str">"input"</span>: human}, {<span class="str">"output"</span>: ai})
+
+<span class="cm"># Inspect what's in memory</span>
+history = memory.load_memory_variables({})
+<span class="fn">print</span>(history[<span class="str">"history"</span>])
+<span class="cm"># [SystemMessage(content="Summary of early conversation..."),</span>
+<span class="cm">#  HumanMessage("Show me decorators."),</span>
+<span class="cm">#  AIMessage("@decorator syntax...")]</span>
+<span class="cm"># ↑ older turns become a summary, recent turns stay raw</span>
+
+<span class="cm"># ── Use in a full LCEL chain ─────────────────────────────</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>, <span class="cls">MessagesPlaceholder</span>
+
+prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"You are a Python tutor."</span>),
+    <span class="cls">MessagesPlaceholder</span>(variable_name=<span class="str">"history"</span>),
+    (<span class="str">"human"</span>, <span class="str">"{input}"</span>),
+])
+
+chain = prompt <span class="op">|</span> model
+
+<span class="kw">def</span> <span class="fn">chat</span>(user_input: <span class="fn">str</span>) -> <span class="fn">str</span>:
+    history = memory.load_memory_variables({})[<span class="str">"history"</span>]
+    response = chain.invoke({<span class="str">"input"</span>: user_input, <span class="str">"history"</span>: history})
+    memory.save_context(
+        {<span class="str">"input"</span>: user_input},
+        {<span class="str">"output"</span>: response.content}
+    )
+    <span class="kw">return</span> response.content
+
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"Remind me what my name is."</span>))
+<span class="cm"># Still knows it's Layla — preserved in the summary!</span>
+</pre>
+
+        <div class="box box-e" style="margin-top:14px;">
+          <strong>✓ Use this as your default memory type</strong>
+          It's the only memory type that handles both long-term recall (via summary) and precise short-term context (via raw messages). The <code>max_token_limit</code> gives you direct cost control. For most production chat applications, start here.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 06 — THE MODERN PATTERN                        -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="modern">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-g">06</span><h2 class="stitle">The Modern Pattern — RunnableWithMessageHistory</h2></div>
+      <p class="sdesc">The LCEL-native way to add memory in LangChain v0.3+</p>
+    </div>
+
+    <p style="color:var(--muted2);margin-bottom:16px;">
+      The memory classes above are somewhat legacy. In LangChain v0.2+, the recommended approach is <code>RunnableWithMessageHistory</code> — it wraps any LCEL chain and manages session-based history automatically, with pluggable backends.
+    </p>
+
+    <div class="box box-g">
+      <strong>Why this is better</strong>
+      Multi-user support via session IDs · Pluggable storage backends (in-memory, Redis, database) · Works natively with LCEL <code>|</code> chains · Cleaner separation between chain logic and memory management
+    </div>
+
+<pre class="lb"><span class="cl">RunnableWithMessageHistory — the modern approach</span>
+<span class="kw">from</span> langchain_core.runnables.history <span class="kw">import</span> <span class="cls">RunnableWithMessageHistory</span>
+<span class="kw">from</span> langchain_core.chat_history <span class="kw">import</span> <span class="cls">BaseChatMessageHistory</span>
+<span class="kw">from</span> langchain_community.chat_message_histories <span class="kw">import</span> <span class="cls">ChatMessageHistory</span>
+<span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>, <span class="cls">MessagesPlaceholder</span>
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> langchain_core.output_parsers <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+<span class="cm"># Session store — maps session_id → ChatMessageHistory</span>
+<span class="cm"># In production, swap this for Redis or a database</span>
+store = {}
+
+<span class="kw">def</span> <span class="fn">get_session_history</span>(session_id: <span class="fn">str</span>) -> <span class="cls">BaseChatMessageHistory</span>:
+    <span class="kw">if</span> session_id <span class="kw">not in</span> store:
+        store[session_id] = <span class="cls">ChatMessageHistory</span>()
+    <span class="kw">return</span> store[session_id]
+
+<span class="cm"># Build the base chain — no memory logic here</span>
+prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"You are a helpful assistant. Be concise."</span>),
+    <span class="cls">MessagesPlaceholder</span>(variable_name=<span class="str">"history"</span>),
+    (<span class="str">"human"</span>, <span class="str">"{input}"</span>),
+])
+chain = prompt <span class="op">|</span> <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>) <span class="op">|</span> <span class="cls">StrOutputParser</span>()
+
+<span class="cm"># Wrap the chain — adds automatic history injection + saving</span>
+chain_with_history = <span class="cls">RunnableWithMessageHistory</span>(
+    chain,
+    get_session_history,              <span class="cm"># session factory function</span>
+    input_messages_key=<span class="str">"input"</span>,      <span class="cm"># which key holds the human message</span>
+    history_messages_key=<span class="str">"history"</span>,  <span class="cm"># where to inject history in the prompt</span>
+)
+
+<span class="cm"># Each call is linked to a session_id — different users, separate memory</span>
+config_user_a = {<span class="str">"configurable"</span>: {<span class="str">"session_id"</span>: <span class="str">"user_a"</span>}}
+config_user_b = {<span class="str">"configurable"</span>: {<span class="str">"session_id"</span>: <span class="str">"user_b"</span>}}
+
+<span class="cm"># User A's conversation</span>
+<span class="fn">print</span>(chain_with_history.invoke({<span class="str">"input"</span>: <span class="str">"My name is Layla."</span>}, config=config_user_a))
+<span class="fn">print</span>(chain_with_history.invoke({<span class="str">"input"</span>: <span class="str">"What's my name?"</span>},    config=config_user_a))
+<span class="cm"># → "Your name is Layla."</span>
+
+<span class="cm"># User B — completely separate memory</span>
+<span class="fn">print</span>(chain_with_history.invoke({<span class="str">"input"</span>: <span class="str">"What's my name?"</span>},    config=config_user_b))
+<span class="cm"># → "I don't know your name yet..." (B never introduced themselves)</span>
+
+
+<span class="cm"># ── Production: swap in-memory store for Redis ───────────</span>
+<span class="kw">from</span> langchain_community.chat_message_histories <span class="kw">import</span> <span class="cls">RedisChatMessageHistory</span>
+
+<span class="kw">def</span> <span class="fn">get_redis_history</span>(session_id: <span class="fn">str</span>) -> <span class="cls">RedisChatMessageHistory</span>:
+    <span class="kw">return</span> <span class="cls">RedisChatMessageHistory</span>(
+        session_id,
+        url=<span class="str">"redis://localhost:6379"</span>,
+        ttl=<span class="num">86400</span>   <span class="cm"># expire sessions after 24h</span>
+    )
+<span class="cm"># Just swap get_session_history → get_redis_history. Chain code unchanged.</span>
+</pre>
+  </section>
+
+  <hr/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 07 — COMPARISON                                -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="compare">
+    <div class="sh">
+      <div class="sh-row"><span class="snum sn-g">07</span><h2 class="stitle">Comparison & Decision Guide</h2></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Memory Type</th>
+            <th>What's Stored</th>
+            <th>Token Cost</th>
+            <th>Long-term Recall</th>
+            <th>Extra LLM Calls</th>
+            <th>Best For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-b">BufferMemory</td>
+            <td>All raw messages</td>
+            <td><span class="badge bad-r">Grows unbounded</span></td>
+            <td><span class="badge bad-g">Perfect</span></td>
+            <td><span class="badge bad-g">None</span></td>
+            <td>Short demos, prototypes</td>
+          </tr>
+          <tr>
+            <td class="td-p">WindowMemory</td>
+            <td>Last K exchanges raw</td>
+            <td><span class="badge bad-g">Fixed (K × avg size)</span></td>
+            <td><span class="badge bad-r">None past K</span></td>
+            <td><span class="badge bad-g">None</span></td>
+            <td>Recent context only, cost-critical</td>
+          </tr>
+          <tr>
+            <td class="td-a">SummaryMemory</td>
+            <td>Compressed summary only</td>
+            <td><span class="badge bad-g">Grows slowly</span></td>
+            <td><span class="badge bad-y">Partial (lossy)</span></td>
+            <td><span class="badge bad-r">Every save</span></td>
+            <td>Very long conversations</td>
+          </tr>
+          <tr>
+            <td class="td-e">SummaryBufferMemory</td>
+            <td>Summary + recent raw</td>
+            <td><span class="badge bad-g">Capped by token limit</span></td>
+            <td><span class="badge bad-y">Good (via summary)</span></td>
+            <td><span class="badge bad-y">When limit exceeded</span></td>
+            <td><strong>Most production apps ← start here</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box box-g" style="margin-top:18px;">
+      <strong>Decision rule</strong>
+      Building a quick demo? → <code>ConversationBufferMemory</code>. Only care about recent turns? → <code>ConversationBufferWindowMemory</code>. Production chat app? → <code>ConversationSummaryBufferMemory</code>. Multi-user production app? → <code>RunnableWithMessageHistory</code> + Redis backend.
+    </div>
+
+    <div class="sum-grid" style="margin-top:22px;">
+      <div class="sum-card sc-b">
+        <h4>📼 BufferMemory</h4>
+        <ul>
+          <li>Stores everything verbatim</li>
+          <li>Zero extra LLM calls</li>
+          <li>Fails on long conversations</li>
+          <li><code>return_messages=True</code> always</li>
+        </ul>
+      </div>
+      <div class="sum-card sc-p">
+        <h4>🪟 WindowMemory</h4>
+        <ul>
+          <li>Set <code>k</code> — last K exchanges kept</li>
+          <li>Predictable, fixed token cost</li>
+          <li>Hard amnesia past window</li>
+          <li>Good for task-focused bots</li>
+        </ul>
+      </div>
+      <div class="sum-card sc-a">
+        <h4>📝 SummaryMemory</h4>
+        <ul>
+          <li>LLM rewrites history each turn</li>
+          <li>One extra LLM call per save</li>
+          <li>Lossy but compact long-term memory</li>
+          <li>Set <code>temperature=0</code> for summarizer</li>
+        </ul>
+      </div>
+      <div class="sum-card sc-e">
+        <h4>⚗️ SummaryBufferMemory</h4>
+        <ul>
+          <li>Set <code>max_token_limit</code> for budget</li>
+          <li>Summarizes only when limit exceeded</li>
+          <li>Recent turns stay perfectly accurate</li>
+          <li>Recommended default for production</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>LangChain Mastery Guide &nbsp;·&nbsp; Phase 3, Section 3.1 &nbsp;·&nbsp; February 2026 &nbsp;·&nbsp; LangChain v0.3+</footer>
+
+<script>
+  // Generate animated background dots
+  const container = document.getElementById('dots');
+  for (let i = 0; i < 40; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.style.cssText = `
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --d:${2+Math.random()*4}s;
+      --delay:${Math.random()*4}s;
+      --op:${0.15+Math.random()*0.35};
+    `;
+    container.appendChild(dot);
+  }
+</script>
+</body>
+</html>
